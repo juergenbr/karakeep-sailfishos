@@ -1,0 +1,24 @@
+# Build artifacts
+*.o
+*.a
+RPMS/
+harbour-karakeep
+Makefile
+
+# Qt / qmake generated
+*.pro.user
+*.pro.user.*
+.qmake.stash
+.qmake.cache
+
+# Translations (compiled)
+translations/*.qm
+
+# sfdk / mb2
+.mb2/
+
+# Claude Code local settings
+.claude/
+
+# Qt generated
+documentation.list

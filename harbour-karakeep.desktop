@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+X-Nemo-Application-Type=silica-qt5
+Icon=harbour-karakeep
+Exec=harbour-karakeep
+Name=KaraKeep
+
+[X-Sailjail]
+OrganizationName=org.karakeep
+ApplicationName=KaraKeep
+Permissions=
