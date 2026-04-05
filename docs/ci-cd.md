@@ -70,11 +70,12 @@ Depends on `build` completing successfully for both architectures.
 
 Steps:
 1. Reads `Version:` from `rpm/harbour-karakeep.spec` — must match `X.Y.Z` (semver) or the job fails
-2. Extracts the first `## [X.Y.Z]` section from `CHANGELOG.md` as release notes
-3. Downloads both RPM artifacts from the `build` job
-4. Creates a GitHub Release tagged `vX.Y.Z` with both RPMs attached
+2. Checks that the git tag `vX.Y.Z` does not already exist — fails if it does, enforcing an explicit version bump for every release
+3. Extracts the `## [X.Y.Z]` section from `CHANGELOG.md` as release notes — fails if the section is missing or empty
+4. Downloads both RPM artifacts from the `build` job
+5. Creates a GitHub Release tagged `vX.Y.Z` with both RPMs attached
 
-If the tag already exists (i.e. the version was not bumped before merging), the job fails — enforcing an explicit version bump for every release.
+The job also depends on `test`: if the test job ran and failed, the release is blocked. If `test` was skipped (i.e. `KARAKEEP_URL` is not configured), the release proceeds normally.
 
 ## Build environment
 

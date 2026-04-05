@@ -119,6 +119,6 @@ When bumping a version, also add an entry to `CHANGELOG.md` (first `## [X.Y.Z]` 
 | `test` | PRs + push to main | Integration tests; only runs when `vars.KARAKEEP_URL` is set |
 | `release` | Push to main only | Reads version from spec, creates a GitHub Release with both RPMs |
 
-The `release` job fails if the spec version does not match `X.Y.Z` semver, or if the tag already exists — forcing an explicit version bump per release.
+The `release` job fails if the spec version does not match `X.Y.Z` semver, if the tag already exists, or if `CHANGELOG.md` has no section for that version — forcing an explicit version bump and changelog entry per release.
 
 The CI image `ghcr.io/juergenbr/karakeep-build-env:latest` is not built with `docker build`; it is created via `docker run` + `sdk-manage` + `docker commit` (PAM requirement). See `Dockerfile` for the full reproduction procedure.

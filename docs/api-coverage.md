@@ -27,7 +27,7 @@ Authentication: `Authorization: Bearer {apiKey}` on every request.
 | POST | `/bookmarks/{id}/tags` | `attachTags(bookmarkId, tagNames)` |
 | DELETE | `/bookmarks/{id}/tags` | `detachTags(bookmarkId, tagNames)` |
 
-When creating a bookmark with tags (`createLinkBookmark` / `createTextBookmark` with a non-empty `tagNames` list), the API performs a two-step sequence internally:
+When creating a bookmark with tags (`createLinkBookmark` / `createTextBookmark` with a non-empty `tagNames` list), the API performs a three-step sequence internally:
 
 1. `POST /bookmarks` → create bookmark
 2. `POST /bookmarks/{id}/tags` → attach tags

@@ -110,7 +110,7 @@ flowchart TD
     class ADD dlg
 ```
 
-`ApplicationWindow` holds two pieces of shared state used by both `MainPage` and `CoverPage`:
+`ApplicationWindow` holds shared state and signals used by both `MainPage` and `CoverPage`:
 - `totalBookmarkCount` — updated by `MainPage` after each fetch (all-bookmarks filter only)
 - `lastBookmarkTitle` — title of the most recently fetched first bookmark
 - `addBookmarkRequested()` — signal fired by the cover page action; `MainPage` listens and pushes `AddBookmarkPage`
