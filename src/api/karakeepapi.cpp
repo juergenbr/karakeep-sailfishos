@@ -337,6 +337,42 @@ void KarakeepApi::fetchTags(const QString &nameContains, int limit)
     });
 }
 
+// ── List membership ───────────────────────────────────────────────────────────
+
+void KarakeepApi::addBookmarkToList(const QString &listId, const QString &bookmarkId)
+{
+    setBusy(true);
+    QNetworkRequest req = authenticatedRequest(buildUrl("/lists/" + listId + "/bookmarks/" + bookmarkId));
+    QNetworkReply *reply = sendWithBody("PUT", req, QByteArray());
+    connect(&m_nam, &QNetworkAccessManager::finished, reply,
+            [this, reply, listId, bookmarkId](QNetworkReply *r) {
+        if (r != reply) return;
+        reply->deleteLater();
+        setBusy(false);
+        if (reply->error() != QNetworkReply::NoError) {
+            handleReplyError(reply, "addBookmarkToList");
+            return;
+        }
+        emit bookmarkAddedToList(listId, bookmarkId);
+    });
+}
+
+void KarakeepApi::removeBookmarkFromList(const QString &listId, const QString &bookmarkId)
+{
+    QNetworkReply *reply = deleteResource("/lists/" + listId + "/bookmarks/" + bookmarkId);
+    connect(&m_nam, &QNetworkAccessManager::finished, reply,
+            [this, reply, listId, bookmarkId](QNetworkReply *r) {
+        if (r != reply) return;
+        reply->deleteLater();
+        setBusy(false);
+        if (reply->error() != QNetworkReply::NoError) {
+            handleReplyError(reply, "removeBookmarkFromList");
+            return;
+        }
+        emit bookmarkRemovedFromList(listId, bookmarkId);
+    });
+}
+
 // ── Private helpers ───────────────────────────────────────────────────────────
 
 QUrl KarakeepApi::buildUrl(const QString &path, const QVariantMap &params) const

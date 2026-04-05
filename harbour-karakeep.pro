@@ -13,6 +13,9 @@ DISTFILES += \
     qml/pages/SettingsPage.qml \
     qml/pages/BookmarkDetailPage.qml \
     qml/pages/AddBookmarkPage.qml \
+    qml/pages/ListsPage.qml \
+    qml/pages/ListDetailPage.qml \
+    qml/pages/ListPickerDialog.qml \
     rpm/harbour-karakeep.changes \
     rpm/harbour-karakeep.spec \
     translations/*.ts \

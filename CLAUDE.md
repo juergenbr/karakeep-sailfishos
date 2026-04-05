@@ -52,25 +52,99 @@ Or push RPM via SSH: the emulator typically listens on `localhost:2223`.
 
 ### Build and run the integration tests
 
-Tests require a real Karakeep server (no mocks). Set env vars `KARAKEEP_URL` and `KARAKEEP_API_KEY` before running:
+Tests require a real Karakeep server (no mocks). Set `KARAKEEP_API_KEY` before running (the server URL is hardcoded in the test settings).
+
+**Always commit source changes before building.** `mb2` creates source tarballs via `git archive`, so uncommitted files are silently excluded from the build — the binary will be stale without any error.
+
+#### Step 1 — purge all build artefacts
+
+This is mandatory whenever `tests/tst_karakeepapi.cpp` or any C++ source it includes has changed. Stale `.o` files and the generated `tests/tst_karakeepapi.moc` will silently produce an out-of-date binary otherwise.
 
 ```bash
-# 1. Build the test binary (host-native, not cross-compiled)
+rm -f *.o moc_*.cpp moc_*.o tst_karakeepapi tst_karakeepapi.moc \
+      tests/tst_karakeepapi tests/tst_karakeepapi.moc Makefile
+```
+
+#### Step 2 — build
+
+```bash
 /usr/bin/docker run --rm \
   -v "$(pwd):/home/mersdk/build" \
   -w /home/mersdk/build \
   --user mersdk \
   ghcr.io/juergenbr/karakeep-build-env:latest \
-  bash -c "qmake tests/tests.pro -o tests/Makefile && make -C tests"
+  mb2 -t SailfishOS-5.0.0.62-i486 -s rpm/tst_karakeepapi.spec build
+```
 
-# 2. Run (set env vars first)
-KARAKEEP_URL=https://... KARAKEEP_API_KEY=... tests/tst_karakeepapi -v2
+#### Step 3 — copy the freshly built binary
 
-# Run a single test function
-KARAKEEP_URL=... KARAKEEP_API_KEY=... tests/tst_karakeepapi -v2 testWhoAmI
+`mb2` leaves the binary in the repo root (not inside `tests/`). Copy it, and also copy the generated moc file so future builds don't use a stale version:
+
+```bash
+cp tst_karakeepapi tests/tst_karakeepapi
+cp tst_karakeepapi.moc tests/tst_karakeepapi.moc
+```
+
+#### Step 4 — run
+
+```bash
+/usr/bin/docker run --rm \
+  -v "$(pwd):/home/mersdk/build" \
+  -w /home/mersdk/build \
+  --user mersdk \
+  -e KARAKEEP_API_KEY="<your-key>" \
+  ghcr.io/juergenbr/karakeep-build-env:latest \
+  bash -c 'export LD_LIBRARY_PATH=/srv/mer/targets/SailfishOS-5.0.0.62-i486/usr/lib:$LD_LIBRARY_PATH; tests/tst_karakeepapi -v2'
+```
+
+Run a single test function by appending its name:
+
+```bash
+... tests/tst_karakeepapi -v2 testWhoAmI
 ```
 
 Tests create and delete bookmarks tagged `__sailfish_test__` to avoid polluting the server.
+
+**Test cleanup** — Any test that creates server-side resources (bookmarks, list memberships) must guarantee cleanup even when a `QVERIFY`/`QCOMPARE` assertion fails and causes an early return. Use the `ScopeGuard` RAII helper defined in `tst_karakeepapi.cpp`:
+
+```cpp
+const QString bookmarkId = createTestLinkBookmark();
+QVERIFY(!bookmarkId.isEmpty());
+ScopeGuard cleanup{ [this, &bookmarkId]() { deleteTestBookmark(bookmarkId); } };
+// ... assertions that may fail early ...
+```
+
+#### One-liner (steps 1–4 chained)
+
+```bash
+rm -f *.o moc_*.cpp moc_*.o tst_karakeepapi tst_karakeepapi.moc \
+      tests/tst_karakeepapi tests/tst_karakeepapi.moc Makefile && \
+/usr/bin/docker run --rm \
+  -v "$(pwd):/home/mersdk/build" \
+  -w /home/mersdk/build \
+  --user mersdk \
+  ghcr.io/juergenbr/karakeep-build-env:latest \
+  mb2 -t SailfishOS-5.0.0.62-i486 -s rpm/tst_karakeepapi.spec build && \
+cp tst_karakeepapi tests/tst_karakeepapi && \
+cp tst_karakeepapi.moc tests/tst_karakeepapi.moc && \
+/usr/bin/docker run --rm \
+  -v "$(pwd):/home/mersdk/build" \
+  -w /home/mersdk/build \
+  --user mersdk \
+  -e KARAKEEP_API_KEY="<your-key>" \
+  ghcr.io/juergenbr/karakeep-build-env:latest \
+  bash -c 'export LD_LIBRARY_PATH=/srv/mer/targets/SailfishOS-5.0.0.62-i486/usr/lib:$LD_LIBRARY_PATH; tests/tst_karakeepapi -v2'
+```
+
+#### Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `make: Nothing to be done for 'first'` | `.o` files in repo root are newer than sources; make skips compilation | Run the purge step (Step 1) before building |
+| Test function present in source but missing from `Totals` | `tests/tst_karakeepapi.moc` is stale (generated before the function was added) | Delete `tests/tst_karakeepapi.moc` and rebuild from scratch |
+| Signal not received / test fails immediately | Source changed but binary not rebuilt — `mb2` used `git archive` of old commit | Commit first, then do a full clean rebuild |
+| `error while loading shared libraries: libQt5Test.so.5` | Qt libs not on `LD_LIBRARY_PATH` at runtime | Always run the binary inside the Docker container with `LD_LIBRARY_PATH=/srv/mer/targets/SailfishOS-5.0.0.62-i486/usr/lib` set |
+| `pkcon install-local` fails with "authentication" | `pkcon` needs PolicyKit which doesn't work over SSH | Use `ssh root@... rpm -Uvh --force` instead |
 
 ## Architecture
 
@@ -106,9 +180,24 @@ qml/pages/MainPage.qml        # Bookmark list, search, filters, pull-down action
 qml/pages/BookmarkDetailPage.qml
 qml/pages/AddBookmarkPage.qml
 qml/pages/SettingsPage.qml    # Server URL + API key; "Test connection" button
+qml/pages/ListsPage.qml       # Browse all lists (manual + smart)
+qml/pages/ListDetailPage.qml  # Bookmarks within a list; move/remove via context menu
+qml/pages/ListPickerDialog.qml # Modal list picker for "Add to list" / "Move to list"
 ```
 
 The root `ApplicationWindow` holds `totalBookmarkCount`, `lastBookmarkTitle`, and the `addBookmarkRequested()` signal so the cover page and main page can share state without direct page-to-page references.
+
+### QML best practices
+
+**Delegate model access** — Inside a `delegate`, use `model.property` (or just `property` for roles) to access the current row's data. Never use `delegateId.model.property`; the `model` attached property is not a property on the item object and will evaluate to `undefined` at runtime, producing QML warnings and silent failures.
+
+**Signal parameter naming** — When a QML page has a property (e.g., `listId`) and an API signal uses the same name as a parameter (e.g., `onListBookmarksFetched(listId, ...)`), the signal parameter silently shadows the page property inside the handler body. Always give API signal parameters distinct names (e.g., `fetchedListId`) to avoid this class of bug.
+
+**Smart-list guard in pickers** — `ListPickerDialog` and any UI that triggers write operations (add/move) must filter out `type === "smart"` lists. Smart lists are read-only on the server; selecting one produces a server error that is not surfaced to the user.
+
+**Async move sequencing** — When moving a bookmark between lists, always add to the target list first and only remove from the source list after the add succeeds (handle it in the `onBookmarkAddedToList` signal handler via a pending-move property). Never fire both calls concurrently or remove first — if the add fails the bookmark ends up in no list with no visible error.
+
+**Error surfacing in two-step flows** — When a flow has two sequential API calls (e.g., create bookmark then add to list), never silently dismiss the UI if the second step fails. Keep the dialog/page open and display the error so the user can see what happened.
 
 ### Qt 5.6 compatibility
 

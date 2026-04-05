@@ -3,7 +3,17 @@
 *.a
 RPMS/
 harbour-karakeep
+tst_karakeepapi
 Makefile
+
+# Qt moc / generated C++
+moc_*.cpp
+moc_*.o
+*.moc
+
+# mb2 / rpm2cpio leftovers
+target_wrapper.sh
+usr/
 
 # Qt / qmake generated
 *.pro.user

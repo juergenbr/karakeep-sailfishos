@@ -95,6 +95,16 @@ Page {
                 }
             }
             MenuItem {
+                text: qsTr("Add to list…")
+                onClicked: {
+                    var bId = bookmarkId
+                    var picker = pageStack.push(Qt.resolvedUrl("ListPickerDialog.qml"), {})
+                    picker.accepted.connect(function() {
+                        KarakeepApi.addBookmarkToList(picker.selectedListId, bId)
+                    })
+                }
+            }
+            MenuItem {
                 text: qsTr("Open in browser")
                 visible: bookmarkUrl !== ""
                 onClicked: Qt.openUrlExternally(bookmarkUrl)

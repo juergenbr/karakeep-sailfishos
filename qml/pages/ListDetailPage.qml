@@ -5,12 +5,23 @@ Page {
     id: page
     allowedOrientations: Orientation.All
 
+    // Properties passed in by ListsPage
+    property string listId
+    property string listName
+    property string listDescription: ""
+    property string listIcon:        ""
+    property string listType:        "manual"   // "manual" | "smart"
+    property bool   listIsPublic:    false
+
     property string nextCursor: ""
-    property bool loading: false
-    property bool hasError: false
+    property bool   loading:    false
+    property bool   hasError:   false
     property string errorMessage: ""
-    property string filterMode: "all"   // "all" | "favourites" | "archived"
-    property string searchQuery: ""
+
+    // State for "Move to another list": track which bookmark is being moved
+    // so we can complete the remove step only after the add succeeds.
+    property string _pendingMoveBookmarkId: ""
+    property string _pendingMoveFromListId: ""
 
     // ── Data model ────────────────────────────────────────────────────────────
 
@@ -53,40 +64,18 @@ Page {
         }
     }
 
-    function headerDescription() {
-        var parts = []
-        if (filterMode === "favourites") parts.push(qsTr("Favourites"))
-        else if (filterMode === "archived") parts.push(qsTr("Archived"))
-        if (bookmarkModel.count > 0) {
-            parts.push(bookmarkModel.count + (nextCursor !== "" ? "+" : "") + " " + qsTr("bookmarks"))
-        }
-        return parts.join(" · ")
-    }
-
     function refresh() {
         loading = true
         hasError = false
         nextCursor = ""
         bookmarkModel.clear()
-        KarakeepApi.fetchBookmarks(
-            "",
-            20,
-            filterMode === "archived",
-            filterMode === "favourites",
-            searchQuery
-        )
+        KarakeepApi.fetchListBookmarks(listId, "", 20)
     }
 
     function loadMore() {
         if (nextCursor === "" || loading) return
         loading = true
-        KarakeepApi.fetchBookmarks(
-            nextCursor,
-            20,
-            filterMode === "archived",
-            filterMode === "favourites",
-            searchQuery
-        )
+        KarakeepApi.fetchListBookmarks(listId, nextCursor, 20)
     }
 
     // ── API connections ───────────────────────────────────────────────────────
@@ -94,33 +83,19 @@ Page {
     Connections {
         target: KarakeepApi
 
-        onBookmarksFetched: {
+        onListBookmarksFetched: {
+            if (fetchedListId !== page.listId) return
             loading = false
-            for (var i = 0; i < bookmarks.length; i++) {
+            for (var i = 0; i < bookmarks.length; i++)
                 bookmarkModel.append(processBookmark(bookmarks[i]))
-            }
             page.nextCursor = nextCursor
-
-            if (filterMode === "all" && page.searchQuery === "") {
-                appWindow.totalBookmarkCount = bookmarkModel.count
-                if (bookmarkModel.count > 0) {
-                    appWindow.lastBookmarkTitle = bookmarkModel.get(0).title
-                }
-            }
         }
 
         onBookmarkUpdated: {
             var processed = processBookmark(bookmark)
             for (var i = 0; i < bookmarkModel.count; i++) {
                 if (bookmarkModel.get(i).id === processed.id) {
-                    // Remove item if it no longer belongs in the current filtered view
-                    if (filterMode === "favourites" && !processed.favourited) {
-                        bookmarkModel.remove(i)
-                    } else if (filterMode === "archived" && !processed.archived) {
-                        bookmarkModel.remove(i)
-                    } else {
-                        bookmarkModel.set(i, processed)
-                    }
+                    bookmarkModel.set(i, processed)
                     break
                 }
             }
@@ -130,58 +105,46 @@ Page {
             for (var i = 0; i < bookmarkModel.count; i++) {
                 if (bookmarkModel.get(i).id === id) {
                     bookmarkModel.remove(i)
-                    if (filterMode === "all") {
-                        appWindow.totalBookmarkCount = bookmarkModel.count
-                    }
                     break
                 }
             }
         }
 
-        onBookmarkCreated: {
-            // Prepend newly created bookmark so it appears at the top
-            bookmarkModel.insert(0, processBookmark(bookmark))
-            if (filterMode === "all") {
-                appWindow.totalBookmarkCount = bookmarkModel.count
-                appWindow.lastBookmarkTitle = bookmarkModel.get(0).title
+        // Bookmark added to this list from AddBookmarkPage or elsewhere — reload
+        onBookmarkAddedToList: {
+            // Complete a pending "move" operation: add succeeded, now remove from source list
+            if (page._pendingMoveBookmarkId !== "" && bookmarkId === page._pendingMoveBookmarkId) {
+                KarakeepApi.removeBookmarkFromList(page._pendingMoveFromListId, page._pendingMoveBookmarkId)
+                page._pendingMoveBookmarkId = ""
+                page._pendingMoveFromListId = ""
+                return
+            }
+            if (listId !== page.listId) return
+            refresh()
+        }
+
+        // Bookmark removed from this list: remove from local model immediately
+        onBookmarkRemovedFromList: {
+            if (listId !== page.listId) return
+            for (var i = 0; i < bookmarkModel.count; i++) {
+                if (bookmarkModel.get(i).id === bookmarkId) {
+                    bookmarkModel.remove(i)
+                    break
+                }
             }
         }
 
         onRequestError: {
+            if (operation !== "fetchListBookmarks") return
             loading = false
             hasError = true
             errorMessage = message
         }
     }
 
-    Connections {
-        target: AppSettings
-        onConfiguredChanged: {
-            if (AppSettings.configured && bookmarkModel.count === 0) {
-                refresh()
-            }
-        }
-    }
-
-    Connections {
-        target: appWindow
-        onAddBookmarkRequested: {
-            if (AppSettings.configured) {
-                pageStack.push(Qt.resolvedUrl("AddBookmarkPage.qml"),
-                               { bookmarkType: "link" })
-            }
-        }
-    }
-
     // ── Initial load ──────────────────────────────────────────────────────────
 
-    Component.onCompleted: {
-        if (!AppSettings.configured) {
-            pageStack.push(Qt.resolvedUrl("SettingsPage.qml"))
-        } else {
-            refresh()
-        }
-    }
+    Component.onCompleted: refresh()
 
     // ── UI ────────────────────────────────────────────────────────────────────
 
@@ -196,52 +159,24 @@ Page {
             busy: loading
 
             MenuItem {
-                text: qsTr("Settings")
-                onClicked: pageStack.push(Qt.resolvedUrl("SettingsPage.qml"))
-            }
-            MenuItem {
-                text: filterMode === "archived"
-                    ? qsTr("All bookmarks")
-                    : qsTr("Show archived")
-                enabled: AppSettings.configured
-                onClicked: {
-                    filterMode = filterMode === "archived" ? "all" : "archived"
-                    searchQuery = ""
-                    refresh()
-                }
-            }
-            MenuItem {
-                text: filterMode === "favourites"
-                    ? qsTr("All bookmarks")
-                    : qsTr("Show favourites")
-                enabled: AppSettings.configured
-                onClicked: {
-                    filterMode = filterMode === "favourites" ? "all" : "favourites"
-                    searchQuery = ""
-                    refresh()
-                }
-            }
-            MenuItem {
-                text: qsTr("Lists")
-                enabled: AppSettings.configured
-                onClicked: pageStack.push(Qt.resolvedUrl("ListsPage.qml"))
+                text: qsTr("Refresh")
+                onClicked: refresh()
             }
             MenuItem {
                 text: qsTr("Add note")
-                enabled: AppSettings.configured
-                onClicked: pageStack.push(Qt.resolvedUrl("AddBookmarkPage.qml"),
-                                          { bookmarkType: "text" })
+                visible: listType !== "smart"
+                onClicked: pageStack.push(Qt.resolvedUrl("AddBookmarkPage.qml"), {
+                    bookmarkType: "text",
+                    targetListId: page.listId
+                })
             }
             MenuItem {
                 text: qsTr("Add link")
-                enabled: AppSettings.configured
-                onClicked: pageStack.push(Qt.resolvedUrl("AddBookmarkPage.qml"),
-                                          { bookmarkType: "link" })
-            }
-            MenuItem {
-                text: qsTr("Refresh")
-                enabled: AppSettings.configured
-                onClicked: refresh()
+                visible: listType !== "smart"
+                onClicked: pageStack.push(Qt.resolvedUrl("AddBookmarkPage.qml"), {
+                    bookmarkType: "link",
+                    targetListId: page.listId
+                })
             }
         }
 
@@ -251,28 +186,28 @@ Page {
             width: parent.width
             spacing: 0
 
-            PageHeader {
-                title: "KaraKeep"
-                description: headerDescription()
+            // List icon banner
+            Item {
+                width: parent.width
+                height: listIcon !== "" ? iconBannerLabel.height + 2 * Theme.paddingLarge : 0
+                visible: listIcon !== ""
+
+                Label {
+                    id: iconBannerLabel
+                    anchors.centerIn: parent
+                    text: listIcon
+                    font.pixelSize: Theme.fontSizeHuge * 2
+                }
             }
 
-            SearchField {
-                id: searchField
-                width: parent.width
-                placeholderText: qsTr("Search bookmarks…")
-                visible: AppSettings.configured
-                EnterKey.iconSource: "image://theme/icon-m-search"
-                EnterKey.onClicked: {
-                    page.searchQuery = text.trim()
-                    page.refresh()
-                }
-                onTextChanged: {
-                    // Only update searchQuery when the field is cleared (X button)
-                    // to avoid desynchronising the cursor/model with an in-progress query.
-                    if (text.trim() === "") {
-                        page.searchQuery = ""
-                        page.refresh()
-                    }
+            PageHeader {
+                title: listName
+                description: {
+                    var parts = []
+                    if (listDescription !== "") parts.push(listDescription)
+                    if (bookmarkModel.count > 0)
+                        parts.push(bookmarkModel.count + (nextCursor !== "" ? "+" : "") + " " + qsTr("bookmarks"))
+                    return parts.join(" · ")
                 }
             }
 
@@ -286,8 +221,7 @@ Page {
                 Label {
                     id: errorLabel
                     anchors {
-                        left: parent.left
-                        right: parent.right
+                        left: parent.left; right: parent.right
                         leftMargin: Theme.horizontalPageMargin
                         rightMargin: Theme.horizontalPageMargin
                         verticalCenter: parent.verticalCenter
@@ -308,9 +242,43 @@ Page {
             contentHeight: Math.max(contentRow.height, Theme.itemSizeMedium) +
                            (model.tagNames !== "" ? tagRow.height + Theme.paddingSmall : 0)
 
+            // ── Context menu ──────────────────────────────────────────────────
+
             menu: ContextMenu {
+                // List-specific actions
                 MenuItem {
-                    text: model.favourited ? qsTr("Remove from favourites") : qsTr("Add to favourites")
+                    text: qsTr("Move to another list")
+                    visible: listType !== "smart"
+                    onClicked: {
+                        var bId    = model.id
+                        var picker = pageStack.push(
+                            Qt.resolvedUrl("ListPickerDialog.qml"),
+                            { excludeListId: page.listId })
+                        picker.accepted.connect(function() {
+                            // Add to target first; onBookmarkAddedToList will
+                            // complete the remove from this list on success.
+                            page._pendingMoveBookmarkId = bId
+                            page._pendingMoveFromListId = page.listId
+                            KarakeepApi.addBookmarkToList(picker.selectedListId, bId)
+                        })
+                    }
+                }
+                MenuItem {
+                    text: qsTr("Remove from list")
+                    visible: listType !== "smart"
+                    onClicked: {
+                        var bId = model.id
+                        listItem.remorseAction(qsTr("Removing"), function() {
+                            KarakeepApi.removeBookmarkFromList(page.listId, bId)
+                        })
+                    }
+                }
+
+                // Standard bookmark actions
+                MenuItem {
+                    text: model.favourited
+                        ? qsTr("Remove from favourites")
+                        : qsTr("Add to favourites")
                     onClicked: KarakeepApi.updateBookmark(model.id, { favourited: !model.favourited })
                 }
                 MenuItem {
@@ -321,9 +289,9 @@ Page {
                     text: qsTr("Delete")
                     onClicked: {
                         var item = listItem
-                        var bookmarkId = model.id
+                        var bId  = model.id
                         item.remorseAction(qsTr("Deleting"), function() {
-                            KarakeepApi.deleteBookmark(bookmarkId)
+                            KarakeepApi.deleteBookmark(bId)
                         })
                     }
                 }
@@ -331,42 +299,38 @@ Page {
 
             ListView.onRemove: animateRemoval(listItem)
 
-            onClicked: {
-                pageStack.push(Qt.resolvedUrl("BookmarkDetailPage.qml"), {
-                    bookmarkId:    model.id,
-                    bookmarkTitle: model.title,
-                    bookmarkUrl:   model.url,
-                    bookmarkType:  model.type,
-                    bookmarkText:  model.text,
-                    bookmarkFavicon:     model.favicon,
-                    bookmarkImageUrl:    model.imageUrl,
-                    bookmarkDescription: model.description,
-                    bookmarkNote:        model.note,
-                    bookmarkSummary:     model.summary,
-                    bookmarkAuthor:      model.author,
-                    bookmarkPublisher:   model.publisher,
-                    bookmarkTagNames:    model.tagNames,
-                    bookmarkFavourited:  model.favourited,
-                    bookmarkArchived:    model.archived,
-                    bookmarkCreatedAt:   model.createdAt,
-                    bookmarkDomain:      model.domain
-                })
-            }
+            onClicked: pageStack.push(Qt.resolvedUrl("BookmarkDetailPage.qml"), {
+                bookmarkId:          model.id,
+                bookmarkTitle:       model.title,
+                bookmarkUrl:         model.url,
+                bookmarkType:        model.type,
+                bookmarkText:        model.text,
+                bookmarkFavicon:     model.favicon,
+                bookmarkImageUrl:    model.imageUrl,
+                bookmarkDescription: model.description,
+                bookmarkNote:        model.note,
+                bookmarkSummary:     model.summary,
+                bookmarkAuthor:      model.author,
+                bookmarkPublisher:   model.publisher,
+                bookmarkTagNames:    model.tagNames,
+                bookmarkFavourited:  model.favourited,
+                bookmarkArchived:    model.archived,
+                bookmarkCreatedAt:   model.createdAt,
+                bookmarkDomain:      model.domain
+            })
 
-            // Main content row
+            // ── Content ───────────────────────────────────────────────────────
+
             Row {
                 id: contentRow
                 anchors {
-                    left: parent.left
-                    right: parent.right
-                    top: parent.top
+                    left: parent.left; right: parent.right; top: parent.top
                     leftMargin: Theme.horizontalPageMargin
                     rightMargin: Theme.horizontalPageMargin
                     topMargin: Theme.paddingSmall
                 }
                 spacing: Theme.paddingMedium
 
-                // Favicon / type icon
                 Item {
                     width: Theme.iconSizeMedium
                     height: Theme.iconSizeMedium
@@ -390,7 +354,6 @@ Page {
                     }
                 }
 
-                // Text content
                 Column {
                     id: textColumn
                     width: parent.width - Theme.iconSizeMedium - Theme.paddingMedium
@@ -417,7 +380,7 @@ Page {
                 }
             }
 
-            // Status icons (top-right)
+            // Status icons
             Row {
                 anchors {
                     right: parent.right
@@ -430,26 +393,22 @@ Page {
                 Icon {
                     source: "image://theme/icon-s-favorite"
                     color: Theme.highlightColor
-                    width: Theme.iconSizeSmall
-                    height: Theme.iconSizeSmall
+                    width: Theme.iconSizeSmall; height: Theme.iconSizeSmall
                     visible: model.favourited
                 }
                 Icon {
                     source: "image://theme/icon-s-archive"
                     color: Theme.secondaryColor
-                    width: Theme.iconSizeSmall
-                    height: Theme.iconSizeSmall
+                    width: Theme.iconSizeSmall; height: Theme.iconSizeSmall
                     visible: model.archived
                 }
             }
 
-            // Tags row (below content)
+            // Tags row
             Flow {
                 id: tagRow
                 anchors {
-                    left: parent.left
-                    right: parent.right
-                    bottom: parent.bottom
+                    left: parent.left; right: parent.right; bottom: parent.bottom
                     leftMargin: Theme.horizontalPageMargin + Theme.iconSizeMedium + Theme.paddingMedium
                     rightMargin: Theme.horizontalPageMargin
                     bottomMargin: Theme.paddingSmall
@@ -458,7 +417,7 @@ Page {
                 visible: model.tagNames !== ""
 
                 Repeater {
-                    model: listItem.model.tagNames !== "" ? listItem.model.tagNames.split(", ") : []
+                    model: model.tagNames !== "" ? model.tagNames.split(", ") : []
                     delegate: Rectangle {
                         height: tagLabel.height + Theme.paddingSmall
                         width: tagLabel.width + Theme.paddingMedium
@@ -493,22 +452,14 @@ Page {
             }
         }
 
-        // ── Empty / placeholder states ─────────────────────────────────────────
+        // ── Placeholder / busy ────────────────────────────────────────────────
 
         ViewPlaceholder {
             enabled: !loading && bookmarkModel.count === 0 && !hasError
-            text: {
-                if (!AppSettings.configured) return qsTr("Server not configured")
-                if (searchQuery !== "") return qsTr("No results")
-                if (filterMode === "favourites") return qsTr("No favourites yet")
-                if (filterMode === "archived") return qsTr("Nothing archived")
-                return qsTr("No bookmarks yet")
-            }
-            hintText: {
-                if (!AppSettings.configured) return qsTr("Pull down and tap Settings to get started")
-                if (searchQuery !== "") return qsTr("Try a different search term")
-                return qsTr("Pull down to add a bookmark")
-            }
+            text: qsTr("No bookmarks in this list")
+            hintText: listType !== "smart"
+                ? qsTr("Pull down to add a link or note")
+                : qsTr("This smart list has no matching bookmarks")
         }
 
         BusyIndicator {

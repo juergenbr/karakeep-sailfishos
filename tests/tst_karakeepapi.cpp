@@ -3,6 +3,7 @@
 
 #include <QSignalSpy>
 #include <QTest>
+#include <functional>
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,12 @@ static bool waitForSignal(QSignalSpy &spy, int ms = TIMEOUT_MS)
     }
     return true;
 }
+
+// RAII scope guard — runs a cleanup function when it goes out of scope.
+struct ScopeGuard {
+    std::function<void()> fn;
+    ~ScopeGuard() { if (fn) fn(); }
+};
 
 // ── Test class ───────────────────────────────────────────────────────────────
 
@@ -62,6 +69,7 @@ private slots:
 
     // ── Lists ────────────────────────────────────────────────────────────────
     void testFetchLists();
+    void testAddAndRemoveBookmarkFromList();
 
     // ── Search ───────────────────────────────────────────────────────────────
     void testSearchBookmarks();
@@ -409,6 +417,89 @@ void TestKarakeepApi::testFetchLists()
         QVERIFY(waitForSignal(lbSpy));
         QCOMPARE(lbSpy.first().at(0).toString(), listId);
     }
+}
+
+void TestKarakeepApi::testAddAndRemoveBookmarkFromList()
+{
+    // Find the first manual list — smart lists are read-only
+    QSignalSpy listsSpy(m_api, &KarakeepApi::listsFetched);
+    m_api->fetchLists();
+    QVERIFY(waitForSignal(listsSpy));
+    const QVariantList lists = listsSpy.first().first().toList();
+
+    QString targetListId;
+    for (const QVariant &v : lists) {
+        const QVariantMap l = v.toMap();
+        if (l.value("type").toString() == QLatin1String("manual")) {
+            targetListId = l.value("id").toString();
+            break;
+        }
+    }
+    if (targetListId.isEmpty())
+        QSKIP("No manual list found on server — skipping list membership test.");
+
+    // Create a scratch bookmark; the scope guard ensures it is deleted even if
+    // an assertion below fails and the function returns early.
+    const QString bookmarkId = createTestLinkBookmark();
+    QVERIFY(!bookmarkId.isEmpty());
+    ScopeGuard cleanup{ [this, &bookmarkId]() { deleteTestBookmark(bookmarkId); } };
+
+    // ── Add to list ──────────────────────────────────────────────────────────
+
+    {
+        QSignalSpy okSpy(m_api, &KarakeepApi::bookmarkAddedToList);
+        QSignalSpy errSpy(m_api, &KarakeepApi::requestError);
+
+        m_api->addBookmarkToList(targetListId, bookmarkId);
+
+        QVERIFY(waitForSignal(okSpy));
+        QCOMPARE(errSpy.count(), 0);
+        QCOMPARE(okSpy.first().at(0).toString(), targetListId);
+        QCOMPARE(okSpy.first().at(1).toString(), bookmarkId);
+    }
+
+    // Verify the bookmark is visible in the list
+    {
+        QSignalSpy lbSpy(m_api, &KarakeepApi::listBookmarksFetched);
+        m_api->fetchListBookmarks(targetListId, QString(), 50);
+        QVERIFY(waitForSignal(lbSpy));
+
+        const QVariantList items = lbSpy.first().at(1).toList();
+        const bool found = std::any_of(items.constBegin(), items.constEnd(),
+            [&bookmarkId](const QVariant &v) {
+                return v.toMap().value("id").toString() == bookmarkId;
+            });
+        QVERIFY2(found, "Bookmark not found in list after addBookmarkToList");
+    }
+
+    // ── Remove from list ─────────────────────────────────────────────────────
+
+    {
+        QSignalSpy okSpy(m_api, &KarakeepApi::bookmarkRemovedFromList);
+        QSignalSpy errSpy(m_api, &KarakeepApi::requestError);
+
+        m_api->removeBookmarkFromList(targetListId, bookmarkId);
+
+        QVERIFY(waitForSignal(okSpy));
+        QCOMPARE(errSpy.count(), 0);
+        QCOMPARE(okSpy.first().at(0).toString(), targetListId);
+        QCOMPARE(okSpy.first().at(1).toString(), bookmarkId);
+    }
+
+    // Verify the bookmark is gone from the list
+    {
+        QSignalSpy lbSpy(m_api, &KarakeepApi::listBookmarksFetched);
+        m_api->fetchListBookmarks(targetListId, QString(), 50);
+        QVERIFY(waitForSignal(lbSpy));
+
+        const QVariantList items = lbSpy.first().at(1).toList();
+        const bool stillPresent = std::any_of(items.constBegin(), items.constEnd(),
+            [&bookmarkId](const QVariant &v) {
+                return v.toMap().value("id").toString() == bookmarkId;
+            });
+        QVERIFY2(!stillPresent, "Bookmark still present in list after removeBookmarkFromList");
+    }
+    // cleanup is handled by the ScopeGuard declared after bookmark creation
 }
 
 // ── Search ────────────────────────────────────────────────────────────────────
