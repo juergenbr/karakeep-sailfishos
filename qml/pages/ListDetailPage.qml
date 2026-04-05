@@ -18,6 +18,11 @@ Page {
     property bool   hasError:   false
     property string errorMessage: ""
 
+    // State for "Move to another list": track which bookmark is being moved
+    // so we can complete the remove step only after the add succeeds.
+    property string _pendingMoveBookmarkId: ""
+    property string _pendingMoveFromListId: ""
+
     // ── Data model ────────────────────────────────────────────────────────────
 
     ListModel { id: bookmarkModel }
@@ -107,6 +112,13 @@ Page {
 
         // Bookmark added to this list from AddBookmarkPage or elsewhere — reload
         onBookmarkAddedToList: {
+            // Complete a pending "move" operation: add succeeded, now remove from source list
+            if (page._pendingMoveBookmarkId !== "" && bookmarkId === page._pendingMoveBookmarkId) {
+                KarakeepApi.removeBookmarkFromList(page._pendingMoveFromListId, page._pendingMoveBookmarkId)
+                page._pendingMoveBookmarkId = ""
+                page._pendingMoveFromListId = ""
+                return
+            }
             if (listId !== page.listId) return
             refresh()
         }
@@ -239,19 +251,14 @@ Page {
                     visible: listType !== "smart"
                     onClicked: {
                         var bId    = model.id
-                        var bIndex = index
                         var picker = pageStack.push(
                             Qt.resolvedUrl("ListPickerDialog.qml"),
                             { excludeListId: page.listId })
                         picker.accepted.connect(function() {
-                            // Optimistic removal from this view
-                            for (var i = 0; i < bookmarkModel.count; i++) {
-                                if (bookmarkModel.get(i).id === bId) {
-                                    bookmarkModel.remove(i)
-                                    break
-                                }
-                            }
-                            KarakeepApi.removeBookmarkFromList(page.listId, bId)
+                            // Add to target first; onBookmarkAddedToList will
+                            // complete the remove from this list on success.
+                            page._pendingMoveBookmarkId = bId
+                            page._pendingMoveFromListId = page.listId
                             KarakeepApi.addBookmarkToList(picker.selectedListId, bId)
                         })
                     }
@@ -410,7 +417,7 @@ Page {
                 visible: model.tagNames !== ""
 
                 Repeater {
-                    model: listItem.model.tagNames !== "" ? listItem.model.tagNames.split(", ") : []
+                    model: model.tagNames !== "" ? model.tagNames.split(", ") : []
                     delegate: Rectangle {
                         height: tagLabel.height + Theme.paddingSmall
                         width: tagLabel.width + Theme.paddingMedium

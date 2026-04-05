@@ -3,6 +3,7 @@
 
 #include <QSignalSpy>
 #include <QTest>
+#include <functional>
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,12 @@ static bool waitForSignal(QSignalSpy &spy, int ms = TIMEOUT_MS)
     }
     return true;
 }
+
+// RAII scope guard — runs a cleanup function when it goes out of scope.
+struct ScopeGuard {
+    std::function<void()> fn;
+    ~ScopeGuard() { if (fn) fn(); }
+};
 
 // ── Test class ───────────────────────────────────────────────────────────────
 
@@ -431,9 +438,11 @@ void TestKarakeepApi::testAddAndRemoveBookmarkFromList()
     if (targetListId.isEmpty())
         QSKIP("No manual list found on server — skipping list membership test.");
 
-    // Create a scratch bookmark
+    // Create a scratch bookmark; the scope guard ensures it is deleted even if
+    // an assertion below fails and the function returns early.
     const QString bookmarkId = createTestLinkBookmark();
     QVERIFY(!bookmarkId.isEmpty());
+    ScopeGuard cleanup{ [this, &bookmarkId]() { deleteTestBookmark(bookmarkId); } };
 
     // ── Add to list ──────────────────────────────────────────────────────────
 
@@ -490,9 +499,7 @@ void TestKarakeepApi::testAddAndRemoveBookmarkFromList()
             });
         QVERIFY2(!stillPresent, "Bookmark still present in list after removeBookmarkFromList");
     }
-
-    // Cleanup
-    deleteTestBookmark(bookmarkId);
+    // cleanup is handled by the ScopeGuard declared after bookmark creation
 }
 
 // ── Search ────────────────────────────────────────────────────────────────────

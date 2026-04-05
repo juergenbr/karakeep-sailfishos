@@ -105,6 +105,15 @@ Run a single test function by appending its name:
 
 Tests create and delete bookmarks tagged `__sailfish_test__` to avoid polluting the server.
 
+**Test cleanup** — Any test that creates server-side resources (bookmarks, list memberships) must guarantee cleanup even when a `QVERIFY`/`QCOMPARE` assertion fails and causes an early return. Use the `ScopeGuard` RAII helper defined in `tst_karakeepapi.cpp`:
+
+```cpp
+const QString bookmarkId = createTestLinkBookmark();
+QVERIFY(!bookmarkId.isEmpty());
+ScopeGuard cleanup{ [this, &bookmarkId]() { deleteTestBookmark(bookmarkId); } };
+// ... assertions that may fail early ...
+```
+
 #### One-liner (steps 1–4 chained)
 
 ```bash
@@ -171,9 +180,24 @@ qml/pages/MainPage.qml        # Bookmark list, search, filters, pull-down action
 qml/pages/BookmarkDetailPage.qml
 qml/pages/AddBookmarkPage.qml
 qml/pages/SettingsPage.qml    # Server URL + API key; "Test connection" button
+qml/pages/ListsPage.qml       # Browse all lists (manual + smart)
+qml/pages/ListDetailPage.qml  # Bookmarks within a list; move/remove via context menu
+qml/pages/ListPickerDialog.qml # Modal list picker for "Add to list" / "Move to list"
 ```
 
 The root `ApplicationWindow` holds `totalBookmarkCount`, `lastBookmarkTitle`, and the `addBookmarkRequested()` signal so the cover page and main page can share state without direct page-to-page references.
+
+### QML best practices
+
+**Delegate model access** — Inside a `delegate`, use `model.property` (or just `property` for roles) to access the current row's data. Never use `delegateId.model.property`; the `model` attached property is not a property on the item object and will evaluate to `undefined` at runtime, producing QML warnings and silent failures.
+
+**Signal parameter naming** — When a QML page has a property (e.g., `listId`) and an API signal uses the same name as a parameter (e.g., `onListBookmarksFetched(listId, ...)`), the signal parameter silently shadows the page property inside the handler body. Always give API signal parameters distinct names (e.g., `fetchedListId`) to avoid this class of bug.
+
+**Smart-list guard in pickers** — `ListPickerDialog` and any UI that triggers write operations (add/move) must filter out `type === "smart"` lists. Smart lists are read-only on the server; selecting one produces a server error that is not surfaced to the user.
+
+**Async move sequencing** — When moving a bookmark between lists, always add to the target list first and only remove from the source list after the add succeeds (handle it in the `onBookmarkAddedToList` signal handler via a pending-move property). Never fire both calls concurrently or remove first — if the add fails the bookmark ends up in no list with no visible error.
+
+**Error surfacing in two-step flows** — When a flow has two sequential API calls (e.g., create bookmark then add to list), never silently dismiss the UI if the second step fails. Keep the dialog/page open and display the error so the user can see what happened.
 
 ### Qt 5.6 compatibility
 

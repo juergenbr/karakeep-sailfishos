@@ -39,7 +39,7 @@ Dialog {
             loading = false
             listsModel.clear()
             for (var i = 0; i < lists.length; i++) {
-                if (lists[i].id !== excludeListId)
+                if (lists[i].id !== excludeListId && lists[i].type !== "smart")
                     listsModel.append(lists[i])
             }
         }

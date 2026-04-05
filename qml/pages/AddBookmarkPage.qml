@@ -59,12 +59,16 @@ Dialog {
         }
 
         onRequestError: {
+            saving = false
             if (operation === "addBookmarkToList") {
-                // Bookmark was created; only the list-add step failed — still dismiss
-                saving = false
-                pageStack.pop()
+                // Bookmark was created, but adding it to the list failed.
+                // Keep the dialog open so the user can see the error.
+                saveError = true
+                saveErrorMessage = message !== ""
+                    ? qsTr("Bookmark saved, but it could not be added to the selected list: %1").arg(message)
+                    : qsTr("Bookmark saved, but it could not be added to the selected list.")
+                dialog._pendingBookmarkId = ""
             } else {
-                saving = false
                 saveError = true
                 saveErrorMessage = message
             }
