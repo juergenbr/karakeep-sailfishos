@@ -1,9 +1,10 @@
-name: Build & validate
+name: Build & release
 
 on:
   push:
-    branches: [main, "release/**"]
+    branches: [main]
   pull_request:
+    branches: [main]
 
 env:
   SFOS_VERSION: "5.0.0.62"
@@ -16,6 +17,8 @@ jobs:
   # cannot execute inside a 32-bit container. So we do NOT use `container:`.
   # Instead we check out the code on the runner as normal, then invoke mb2
   # (the actual build tool) via `docker run` for the compile + RPM steps.
+  #
+  # Runs on every PR (validates the build) and on every push to main.
   build:
     name: Build RPM (${{ matrix.target }})
     runs-on: ubuntu-latest
@@ -44,6 +47,7 @@ jobs:
         run: |
           # mb2 writes .sfdk/ into the working directory; the runner-owned
           # workspace needs to be writable by the mersdk user inside the container.
+          # Source must be mounted under /home/mersdk/ so sb2 path mappings apply.
           chmod -R a+rw "${GITHUB_WORKSPACE}"
           docker run --rm \
             -v "${GITHUB_WORKSPACE}:/home/mersdk/build" \
@@ -64,7 +68,9 @@ jobs:
           path: RPMS/*.rpm
           retention-days: 14
 
-  # ── Job 2: integration tests (optional, needs API credentials) ────────────────
+  # ── Job 2: integration tests (optional, needs API credentials) ──────────────
+  #
+  # Skipped automatically when vars.KARAKEEP_URL is not configured.
   test:
     name: API integration tests
     runs-on: ubuntu-latest
@@ -104,3 +110,58 @@ jobs:
             -e KARAKEEP_API_KEY \
             ghcr.io/juergenbr/karakeep-build-env:latest \
             tests/tst_karakeepapi -v2
+
+  # ── Job 3: publish GitHub Release ──────────────────────────────────────────
+  #
+  # Only runs on pushes to main (i.e. after a PR is merged), never on PRs.
+  # Reads the semver from rpm/harbour-karakeep.spec (Version: field) and
+  # creates/updates the matching vX.Y.Z tag and release.
+  # Fails if the tag already exists to guard against forgetting a version bump.
+  release:
+    name: GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read version from spec
+        id: ver
+        run: |
+          VERSION=$(grep '^Version:' rpm/harbour-karakeep.spec | awk '{print $2}')
+          # Validate it looks like a semver (digits and dots only)
+          if ! echo "${VERSION}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "ERROR: Version '${VERSION}' does not match semver (X.Y.Z)" >&2
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VERSION}"    >> "$GITHUB_OUTPUT"
+
+      - name: Extract release notes for this version
+        run: |
+          # Pull out just the first ## section from CHANGELOG.md
+          awk '/^## \[/{if(p)exit; p=1} p' CHANGELOG.md > release-notes.md
+          echo "--- release notes ---"
+          cat release-notes.md
+
+      - name: Download RPM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-rpms
+          merge-multiple: true
+
+      - name: List RPMs to publish
+        run: ls -lh release-rpms/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: ${{ steps.ver.outputs.tag }}
+          body_path: release-notes.md
+          files: release-rpms/*.rpm
+          fail_on_unmatched_files: true
