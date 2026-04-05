@@ -83,7 +83,7 @@ signals:
 
     void listsFetched(const QVariantList &lists);
 
-    void listBookmarksFetched(const QString      &listId,
+    void listBookmarksFetched(const QString      &fetchedListId,
                               const QVariantList &bookmarks,
                               const QString      &nextCursor);
 

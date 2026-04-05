@@ -79,7 +79,7 @@ Page {
         target: KarakeepApi
 
         onListBookmarksFetched: {
-            if (id !== listId) return
+            if (fetchedListId !== page.listId) return
             loading = false
             for (var i = 0; i < bookmarks.length; i++)
                 bookmarkModel.append(processBookmark(bookmarks[i]))
