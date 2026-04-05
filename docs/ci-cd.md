@@ -1,81 +1,110 @@
 # CI/CD Pipeline
 
-## Overview
+## Commit message convention
 
-The pipeline has two distinct trigger paths with different outcomes:
+All commits must follow [Conventional Commits](https://www.conventionalcommits.org/). The type determines the semver bump applied to the next release:
+
+| Commit type | Example | Semver bump |
+|-------------|---------|-------------|
+| `fix:` | `fix: search field dismissed on keystroke` | **patch** — 0.2.0 → 0.2.1 |
+| `feat:` | `feat: add lists view` | **minor** — 0.2.0 → 0.3.0 |
+| `feat!:` or `BREAKING CHANGE:` footer | `feat!: replace settings storage format` | **major** — 0.2.0 → 1.0.0 |
+| `chore:`, `ci:`, `test:`, `style:` | — | none (hidden in changelog) |
+| `docs:`, `refactor:`, `perf:` | — | none (shown in changelog, no version bump on their own) |
+
+Commits that don't affect user-visible behaviour (`chore:`, `ci:`, `test:`, `style:`) are hidden from the changelog. Use them for infrastructure, formatting, and maintenance work.
+
+---
+
+## Workflow overview
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#1e3a5f', 'primaryTextColor': '#fff', 'primaryBorderColor': '#3b6ea5', 'lineColor': '#475569', 'clusterBkg': '#f8fafc', 'clusterBorder': '#cbd5e1'}}}%%
 flowchart TD
-    PR["Pull Request → main"]
-    PUSH["Merge to main"]
+    DEV["Developer\npushes feat:/fix: commits\nto main"]
 
-    subgraph BUILD["build  (matrix)"]
-        B1["Build RPM\ni486 · emulator"]
-        B2["Build RPM\naarch64 · device"]
+    RP["release-please\ncreates or updates\nRelease PR"]
+
+    REVIEW["Team reviews\nand merges\nthe Release PR"]
+
+    TAG["release-please\ncreates tag vX.Y.Z\n+ GitHub Release"]
+
+    subgraph BUILD_PR["On every PR → main"]
+        B1["Build i486"]
+        B2["Build aarch64"]
+        T["Integration tests\n(if KARAKEEP_URL set)"]
     end
 
-    subgraph OPTIONAL["test  (optional)"]
-        T["Integration tests\nrequires KARAKEEP_URL var"]
+    subgraph BUILD_REL["On release: published"]
+        B3["Build i486"]
+        B4["Build aarch64"]
+        ATTACH["Attach RPMs\nto GitHub Release"]
     end
 
-    subgraph RELEASE["release  (merge only)"]
-        R["Create GitHub Release\nvX.Y.Z  +  RPM assets"]
-    end
+    DEV --> RP
+    RP --> BUILD_PR
+    RP --> REVIEW
+    REVIEW --> TAG
+    TAG --> BUILD_REL
+    B3 --> ATTACH
+    B4 --> ATTACH
 
-    PR  --> BUILD
-    PR  --> OPTIONAL
-    PUSH --> BUILD
-    PUSH --> OPTIONAL
-    BUILD -- "both arches must pass" --> RELEASE
+    classDef person  fill:#475569,stroke:#334155,color:#fff
+    classDef auto    fill:#1d4ed8,stroke:#1e40af,color:#fff
+    classDef manual  fill:#b45309,stroke:#92400e,color:#fff
 
-    classDef trigger fill:#475569,stroke:#334155,color:#fff
-    classDef job     fill:#1d4ed8,stroke:#1e40af,color:#fff
-    classDef opt     fill:#78716c,stroke:#57534e,color:#fff
-    classDef rel     fill:#15803d,stroke:#166534,color:#fff
-
-    class PR,PUSH trigger
-    class B1,B2 job
-    class T opt
-    class R rel
+    class DEV person
+    class RP,TAG,B1,B2,T,B3,B4,ATTACH auto
+    class REVIEW manual
 ```
+
+---
 
 ## Jobs
 
-### `build` — runs on every push and every PR
+### `release-please` (`.github/workflows/release-please.yml`)
 
-Compiles the app for both `i486` (emulator) and `aarch64` (device) using `mb2` inside the pre-built SailfishOS SDK container.
+Runs on every push to `main`. Reads conventional commit messages since the last release tag and:
+- Creates (or updates) a **Release PR** titled `chore(main): release X.Y.Z`
+- The PR automatically bumps `Version:` in `rpm/harbour-karakeep.spec` and `value:` in `qml/pages/SettingsPage.qml`
+- Updates `CHANGELOG.md` with grouped entries (`### Added`, `### Fixed`, etc.)
+- Updates `.release-please-manifest.json` with the new version
 
-Key details:
-- Source is mounted at `/home/mersdk/build` (not `/build`) so that `sb2` path mappings are satisfied
-- `chmod -R a+rw` is applied before `docker run` because the runner-owned workspace must be writable by the `mersdk` user inside the container
-- Produced RPMs are uploaded as workflow artifacts named `harbour-karakeep-{target}-rpm` (retention: 14 days)
+When the Release PR is merged, release-please creates the git tag `vX.Y.Z` and a GitHub Release (no RPMs yet — the build job attaches them).
 
-### `test` — conditional, runs when `vars.KARAKEEP_URL` is set
+### `build` (`.github/workflows/build.yml`)
 
-Builds a host-native test binary (`tst_karakeepapi`) using the same backend sources and runs integration tests against a live Karakeep server.
+Compiles for `i486` (emulator) and `aarch64` (device).
 
-Required repository configuration:
+Triggers:
+- **`pull_request → main`** — validates every PR including release-please's Release PR
+- **`release: published`** — builds the exact tagged commit and makes artifacts available for `attach-rpms`
+
+### `test` (`.github/workflows/build.yml`)
+
+Integration tests against a live server. Only runs on `pull_request` events (not on releases). Skipped unless `vars.KARAKEEP_URL` is configured.
 
 | Setting | Where | Value |
 |---------|-------|-------|
-| `KARAKEEP_URL` | Repository variable | Server URL, e.g. `https://karakeep.example.com` |
-| `KARAKEEP_API_KEY` | Repository secret | A full-access API key |
+| `KARAKEEP_URL` | Repository variable | Server URL |
+| `KARAKEEP_API_KEY` | Repository secret | Full-access API key |
 
-Tests create and delete bookmarks tagged `__sailfish_test__` and clean up after themselves.
+### `attach-rpms` (`.github/workflows/build.yml`)
 
-### `release` — runs only on push to `main` (never on PRs)
+Runs after both `build` matrix jobs succeed, only on `release: published`. Downloads both RPM artifacts and uploads them to the GitHub Release.
 
-Depends on `build` completing successfully for both architectures.
+---
 
-Steps:
-1. Reads `Version:` from `rpm/harbour-karakeep.spec` — must match `X.Y.Z` (semver) or the job fails
-2. Checks that the git tag `vX.Y.Z` does not already exist — fails if it does, enforcing an explicit version bump for every release
-3. Extracts the `## [X.Y.Z]` section from `CHANGELOG.md` as release notes — fails if the section is missing or empty
-4. Downloads both RPM artifacts from the `build` job
-5. Creates a GitHub Release tagged `vX.Y.Z` with both RPMs attached
+## Day-to-day release process
 
-The job also depends on `test`: if the test job ran and failed, the release is blocked. If `test` was skipped (i.e. `KARAKEEP_URL` is not configured), the release proceeds normally.
+1. Commit and push feature/fix work to `main` using conventional commit messages.
+2. release-please opens or updates a Release PR automatically.
+3. When ready to ship, review the Release PR (check the version bump and changelog), then merge it.
+4. release-please creates the tag and release; the build workflow attaches RPMs within minutes.
+
+No manual version edits, tag pushes, or changelog entries needed.
+
+---
 
 ## Build environment
 
@@ -87,21 +116,4 @@ The build container `ghcr.io/juergenbr/karakeep-build-env:latest` is hosted on G
 
 The image is created via `docker run` → `sdk-manage` → `docker commit` (not `docker build`) because `sdk-manage target install` requires PAM/sudo, which is unavailable in `RUN` steps. Full reproduction instructions are in [`Dockerfile`](../Dockerfile).
 
-To update the SFOS version: redo the commit procedure from the `Dockerfile`, push a new tagged image, and update `SFOS_VERSION` in `.github/workflows/build.yml`.
-
-## Versioning
-
-Versions follow [Semantic Versioning](https://semver.org). The version is the single source of truth in `rpm/harbour-karakeep.spec`:
-
-```
-Version:    X.Y.Z
-```
-
-When bumping a version, update these files together:
-
-| File | What to change |
-|------|----------------|
-| `rpm/harbour-karakeep.spec` | `Version: X.Y.Z` |
-| `qml/pages/SettingsPage.qml` | `DetailItem { value: "X.Y.Z" }` in the About section |
-| `CHANGELOG.md` | Add a new `## [X.Y.Z] — YYYY-MM-DD` section at the top |
-| `rpm/harbour-karakeep.changes` | Add a new entry at the top |
+To upgrade the SFOS version: redo the commit procedure from the `Dockerfile`, push a new tagged image, and update `SFOS_VERSION` in `.github/workflows/build.yml`.

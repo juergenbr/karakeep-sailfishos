@@ -159,7 +159,7 @@ Page {
 
             DetailItem {
                 label: qsTr("Version")
-                value: "0.2.0"
+                value: "0.2.0"  // x-release-please-version
             }
         }
 

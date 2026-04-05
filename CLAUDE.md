@@ -101,24 +101,27 @@ The target runtime is Qt 5.6 (SailfishOS 4/5). Known pitfalls already hit:
 - `QVariant(void*)` constructor is deleted — never pass a `QQuickItem*` (or any raw pointer) to `setContextProperty()`; wrap it first or don't pass it at all
 - `QNetworkAccessManager::sendCustomRequest` with a body requires a `QIODevice*` — see `sendWithBody()` in `karakeepapi.cpp`
 
-## Versioning and release
+## Versioning and releases
 
-Version is maintained in **two places** that must stay in sync:
-1. `rpm/harbour-karakeep.spec` → `Version: X.Y.Z` (drives the CI release tag)
+**Do not manually edit version numbers.** Releases are fully automated via `release-please`.
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) for every commit:
+- `fix: …` → patch bump (0.2.0 → 0.2.1)
+- `feat: …` → minor bump (0.2.0 → 0.3.0)
+- `feat!: …` or `BREAKING CHANGE:` footer → major bump
+
+release-please opens a Release PR automatically after each push to main. Merging that PR creates the tag, GitHub Release, and triggers the build/attach pipeline. No manual changelog, spec, or QML edits needed — release-please updates them all.
+
+The two version strings that release-please manages (annotated with `# x-release-please-version`):
+1. `rpm/harbour-karakeep.spec` → `Version:`
 2. `qml/pages/SettingsPage.qml` → the `DetailItem` value in the About section
-
-When bumping a version, also add an entry to `CHANGELOG.md` (first `## [X.Y.Z]` section is used as GitHub Release notes) and to `rpm/harbour-karakeep.changes`.
 
 ## CI pipeline
 
-`.github/workflows/build.yml` has three jobs:
-
-| Job | Trigger | Purpose |
-|-----|---------|---------|
-| `build` | PRs + push to main | Compiles both `i486` and `aarch64` RPMs; gate for merging |
-| `test` | PRs + push to main | Integration tests; only runs when `vars.KARAKEEP_URL` is set |
-| `release` | Push to main only | Reads version from spec, creates a GitHub Release with both RPMs |
-
-The `release` job fails if the spec version does not match `X.Y.Z` semver, if the tag already exists, or if `CHANGELOG.md` has no section for that version — forcing an explicit version bump and changelog entry per release.
+| Workflow | Trigger | Jobs |
+|----------|---------|------|
+| `release-please.yml` | Push to main | Creates/updates Release PR; tags and creates GitHub Release on merge |
+| `build.yml` | PR to main | `build` (i486 + aarch64) + `test` (if `KARAKEEP_URL` set) |
+| `build.yml` | Release published | `build` (i486 + aarch64) → `attach-rpms` (uploads to the release) |
 
 The CI image `ghcr.io/juergenbr/karakeep-build-env:latest` is not built with `docker build`; it is created via `docker run` + `sdk-manage` + `docker commit` (PAM requirement). See `Dockerfile` for the full reproduction procedure.
