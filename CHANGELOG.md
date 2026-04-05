@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.3.0](https://github.com/juergenbr/karakeep-sailfishos/compare/v0.2.0...v0.3.0) (2026-04-05)
+
+
+### ### Added
+
+* add Lists browsing and bookmark list management ([5059855](https://github.com/juergenbr/karakeep-sailfishos/commit/5059855e0a4cde7c12e02183ec7beb753b560b98))
+* Lists — browse, view, and manage bookmark lists ([825790b](https://github.com/juergenbr/karakeep-sailfishos/commit/825790b4aabe6416002706dae1d618a5b40e6012))
+
+
+### ### Fixed
+
+* address PR review comments on Lists feature ([78be43a](https://github.com/juergenbr/karakeep-sailfishos/commit/78be43a797f0e8a887e93def5fe858da82664826))
+* rename listBookmarksFetched param to avoid QML name collision ([04b4bbf](https://github.com/juergenbr/karakeep-sailfishos/commit/04b4bbfc17270431e87155c74b0f949615b0062c))
+* use PUT /lists/{id}/bookmarks/{bookmarkId} for list membership ([8b2efeb](https://github.com/juergenbr/karakeep-sailfishos/commit/8b2efeb89a83570ddfd53181fa6ae4fba90bc875))
+
+
+### ### Documentation
+
+* add reliable test build instructions and troubleshooting to CLAUDE.md ([8888bab](https://github.com/juergenbr/karakeep-sailfishos/commit/8888bab852dac26e535313f5b46d295279c5b114))
+
 ## [0.2.0] — 2026-04-05
 
 ### Added
