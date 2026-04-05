@@ -46,8 +46,8 @@ jobs:
           # workspace needs to be writable by the mersdk user inside the container.
           chmod -R a+rw "${GITHUB_WORKSPACE}"
           docker run --rm \
-            -v "${GITHUB_WORKSPACE}:/build" \
-            -w /build \
+            -v "${GITHUB_WORKSPACE}:/home/mersdk/build" \
+            -w /home/mersdk/build \
             --user mersdk \
             ghcr.io/juergenbr/karakeep-build-env:latest \
             mb2 -t "SailfishOS-${SFOS_VERSION}-${TARGET}" \
@@ -85,8 +85,8 @@ jobs:
         run: |
           chmod -R a+rw "${GITHUB_WORKSPACE}"
           docker run --rm \
-            -v "${GITHUB_WORKSPACE}:/build" \
-            -w /build \
+            -v "${GITHUB_WORKSPACE}:/home/mersdk/build" \
+            -w /home/mersdk/build \
             --user mersdk \
             ghcr.io/juergenbr/karakeep-build-env:latest \
             bash -c "qmake tests/tests.pro -o tests/Makefile && make -C tests -f Makefile"
@@ -97,8 +97,8 @@ jobs:
           KARAKEEP_API_KEY: ${{ secrets.KARAKEEP_API_KEY }}
         run: |
           docker run --rm \
-            -v "${GITHUB_WORKSPACE}:/build" \
-            -w /build \
+            -v "${GITHUB_WORKSPACE}:/home/mersdk/build" \
+            -w /home/mersdk/build \
             --user mersdk \
             -e KARAKEEP_URL \
             -e KARAKEEP_API_KEY \
