@@ -8,4 +8,4 @@ Name=KaraKeep
 [X-Sailjail]
 OrganizationName=org.karakeep
 ApplicationName=KaraKeep
-Permissions=
+Permissions=Internet

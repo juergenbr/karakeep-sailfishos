@@ -1,10 +1,10 @@
 Name:       harbour-karakeep
 
 Summary:    KaraKeep
-Version:    0.1
+Version:    0.2.0
 Release:    1
 License:    LICENSE
-URL:        https://github.com/
+URL:        https://github.com/juergenbr/karakeep-sailfishos
 Source0:    %{name}-%{version}.tar.bz2
 Requires:   sailfishsilica-qt5 >= 0.10.9
 BuildRequires:  pkgconfig(sailfishapp) >= 1.0.2

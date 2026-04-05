@@ -1,4 +1,5 @@
 #include "appsettings.h"
+#include <QProcessEnvironment>
 
 static const char *KEY_SERVER_URL = "connection/serverUrl";
 static const char *KEY_API_KEY    = "connection/apiKey";
@@ -7,6 +8,20 @@ AppSettings::AppSettings(QObject *parent)
     : QObject(parent)
     , m_settings("harbour-karakeep", "harbour-karakeep")
 {
+    // Seed from env vars on first run (debug convenience)
+    const QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    if (m_settings.value(KEY_SERVER_URL).toString().isEmpty()) {
+        const QString envUrl = env.value("KARAKEEP_URL");
+        if (!envUrl.isEmpty())
+            m_settings.setValue(KEY_SERVER_URL, envUrl);
+    }
+    if (m_settings.value(KEY_API_KEY).toString().isEmpty()) {
+        QString envKey = env.value("KARAKEEP_API_KEY");
+        if (envKey.isEmpty())
+            envKey = env.value("KARAKEEP_KEY");
+        if (!envKey.isEmpty())
+            m_settings.setValue(KEY_API_KEY, envKey);
+    }
 }
 
 QString AppSettings::serverUrl() const

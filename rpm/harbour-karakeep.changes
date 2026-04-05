@@ -1,2 +1,20 @@
+* Sun Apr 05 2026 Jürgen B. <dev@karakeep.org> 0.2-1
+- Add full-text bookmark search (routes to /bookmarks/search endpoint)
+- Fix keyboard dismissed on every search keystroke (search fires on Enter or X only)
+- Fix X button not reloading full bookmark list after clearing search
+- Add search-based filtering for favourites and archived views
+- Add pull-down menu items: "Add link", "Add note", filter toggles
+- Add cover page with bookmark count, last title, and quick-add action
+- Add "Add bookmark" page for creating new link and text-note bookmarks
+- Add bookmark detail page with full metadata display and open-in-browser action
+- Add archive / unarchive and favourite toggle to bookmark context menu
+- Add delete with remorse action to bookmark context menu
+- Add pagination with "Load more" footer button
+- Add Sailjail Internet permission for network access
+- Fix search endpoint routing (was sending ?q= to list endpoint, now uses correct /search path)
+- Fix settings not persisting (save per-field on onEditingFinished)
+- Fix binding loop on initialPage (use Component.onCompleted instead of onStatusChanged)
+- Add integration test suite for Karakeep API (tst_karakeepapi)
+
 * Fri Apr 04 2026 Developer <dev@karakeep.org> 0.1-1
 - Initial release

@@ -49,18 +49,30 @@ void KarakeepApi::fetchBookmarks(const QString &cursor,
                                   bool           favourited,
                                   const QString &search)
 {
+    // Full-text search uses a dedicated endpoint; the bookmarks list endpoint
+    // ignores unknown query parameters and always returns unfiltered results.
     QVariantMap params;
     params["limit"] = limit;
     if (!cursor.isEmpty())
         params["cursor"] = cursor;
-    if (archived)
-        params["archived"] = true;
-    if (favourited)
-        params["favourited"] = true;
-    if (!search.isEmpty())
-        params["q"] = search;
 
-    QNetworkReply *reply = get("/bookmarks", params);
+    QString path;
+    if (!search.isEmpty()) {
+        path = "/bookmarks/search";
+        params["q"] = search;
+        if (archived)
+            params["archived"] = true;
+        if (favourited)
+            params["favourited"] = true;
+    } else {
+        path = "/bookmarks";
+        if (archived)
+            params["archived"] = true;
+        if (favourited)
+            params["favourited"] = true;
+    }
+
+    QNetworkReply *reply = get(path, params);
     connect(&m_nam, &QNetworkAccessManager::finished, reply, [this, reply](QNetworkReply *r) {
         if (r != reply) return;
         reply->deleteLater();
