@@ -341,9 +341,9 @@ void KarakeepApi::fetchTags(const QString &nameContains, int limit)
 
 void KarakeepApi::addBookmarkToList(const QString &listId, const QString &bookmarkId)
 {
-    QJsonObject body;
-    body["bookmarkId"] = bookmarkId;
-    QNetworkReply *reply = post("/lists/" + listId + "/bookmarks", body);
+    setBusy(true);
+    QNetworkRequest req = authenticatedRequest(buildUrl("/lists/" + listId + "/bookmarks/" + bookmarkId));
+    QNetworkReply *reply = sendWithBody("PUT", req, QByteArray());
     connect(&m_nam, &QNetworkAccessManager::finished, reply,
             [this, reply, listId, bookmarkId](QNetworkReply *r) {
         if (r != reply) return;
