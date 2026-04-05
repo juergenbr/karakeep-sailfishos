@@ -2,6 +2,23 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Commit messages
+
+All commits must follow [Conventional Commits](https://www.conventionalcommits.org/). CI enforces this on every PR.
+
+```
+<type>[(<scope>)][!]: <short description>
+```
+
+Common types: `feat` `fix` `docs` `refactor` `perf` `test` `chore` `ci`  
+Breaking change: append `!` to the type, e.g. `feat!:` or `fix(api)!:`
+
+Install the local commit-msg hook once per clone so violations are caught before push:
+
+```bash
+git config core.hooksPath .githooks
+```
+
 ## Build system constraints
 
 All compilation happens **inside the SailfishOS build engine container** — you cannot run `qmake` or `make` directly on the host. The build engine is a 32-bit (i486) Docker image.

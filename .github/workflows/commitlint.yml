@@ -1,0 +1,47 @@
+name: Conventional commits
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint commit messages
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check commit messages
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          PATTERN='^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\([^)]+\))?(!)?: .+'
+          FAILED=0
+
+          while IFS= read -r msg; do
+            # Skip merge commits
+            case "$msg" in
+              Merge\ *|Revert\ \"Merge\ *) continue ;;
+            esac
+
+            if echo "$msg" | grep -qE "$PATTERN"; then
+              echo "ok  $msg"
+            else
+              echo "FAIL  $msg"
+              FAILED=1
+            fi
+          done < <(git log --format="%s" "${BASE_SHA}".."${HEAD_SHA}")
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo ""
+            echo "One or more commit messages do not follow Conventional Commits."
+            echo "Format: <type>[(<scope>)][!]: <description>"
+            echo "Types:  feat fix docs style refactor perf test chore ci build revert"
+            echo "Docs:   https://www.conventionalcommits.org"
+            exit 1
+          fi

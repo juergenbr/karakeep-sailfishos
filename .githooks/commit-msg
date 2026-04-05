@@ -1,0 +1,34 @@
+#!/bin/sh
+# Validates the commit message against the Conventional Commits specification.
+# Install once per clone: git config core.hooksPath .githooks
+
+MSG=$(cat "$1")
+
+# Skip merge commits
+case "$MSG" in
+  Merge\ *|Revert\ \"Merge\ *) exit 0 ;;
+esac
+
+PATTERN='^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\([^)]+\))?(!)?: .+'
+
+if ! echo "$MSG" | grep -qE "$PATTERN"; then
+  echo ""
+  echo "  Commit message does not follow Conventional Commits."
+  echo ""
+  echo "  Format:  <type>[(<scope>)][!]: <short description>"
+  echo ""
+  echo "  Examples:"
+  echo "    feat: add bookmark lists view"
+  echo "    fix(api): handle empty search results"
+  echo "    docs: update contribution guidelines"
+  echo "    feat!: drop Qt 5.6 compatibility"
+  echo "    fix(ui)!: change settings storage format"
+  echo ""
+  echo "  Types: feat  fix  docs  style  refactor  perf  test  chore  ci  build  revert"
+  echo "  Scope: optional, e.g. (api) (ui) (cover) (ci)"
+  echo "  !    : marks a breaking change (triggers a major version bump)"
+  echo ""
+  echo "  Your message: $MSG"
+  echo ""
+  exit 1
+fi
