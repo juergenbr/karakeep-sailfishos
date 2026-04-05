@@ -22,12 +22,6 @@ int main(int argc, char *argv[])
     view->rootContext()->setContextProperty("KarakeepApi", api);
 
     view->setSource(SailfishApp::pathTo("qml/harbour-karakeep.qml"));
-
-    // Expose the root QML ApplicationWindow as a context property so that
-    // CoverPage.qml and other separately-loaded components can access its
-    // shared state (totalBookmarkCount, lastBookmarkTitle, addBookmarkRequested).
-    view->rootContext()->setContextProperty("appWindow", view->rootObject());
-
     view->show();
 
     return app->exec();
