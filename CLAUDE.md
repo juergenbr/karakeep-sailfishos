@@ -52,25 +52,90 @@ Or push RPM via SSH: the emulator typically listens on `localhost:2223`.
 
 ### Build and run the integration tests
 
-Tests require a real Karakeep server (no mocks). Set env vars `KARAKEEP_URL` and `KARAKEEP_API_KEY` before running:
+Tests require a real Karakeep server (no mocks). Set `KARAKEEP_API_KEY` before running (the server URL is hardcoded in the test settings).
+
+**Always commit source changes before building.** `mb2` creates source tarballs via `git archive`, so uncommitted files are silently excluded from the build — the binary will be stale without any error.
+
+#### Step 1 — purge all build artefacts
+
+This is mandatory whenever `tests/tst_karakeepapi.cpp` or any C++ source it includes has changed. Stale `.o` files and the generated `tests/tst_karakeepapi.moc` will silently produce an out-of-date binary otherwise.
 
 ```bash
-# 1. Build the test binary (host-native, not cross-compiled)
+rm -f *.o moc_*.cpp moc_*.o tst_karakeepapi tst_karakeepapi.moc \
+      tests/tst_karakeepapi tests/tst_karakeepapi.moc Makefile
+```
+
+#### Step 2 — build
+
+```bash
 /usr/bin/docker run --rm \
   -v "$(pwd):/home/mersdk/build" \
   -w /home/mersdk/build \
   --user mersdk \
   ghcr.io/juergenbr/karakeep-build-env:latest \
-  bash -c "qmake tests/tests.pro -o tests/Makefile && make -C tests"
+  mb2 -t SailfishOS-5.0.0.62-i486 -s rpm/tst_karakeepapi.spec build
+```
 
-# 2. Run (set env vars first)
-KARAKEEP_URL=https://... KARAKEEP_API_KEY=... tests/tst_karakeepapi -v2
+#### Step 3 — copy the freshly built binary
 
-# Run a single test function
-KARAKEEP_URL=... KARAKEEP_API_KEY=... tests/tst_karakeepapi -v2 testWhoAmI
+`mb2` leaves the binary in the repo root (not inside `tests/`). Copy it, and also copy the generated moc file so future builds don't use a stale version:
+
+```bash
+cp tst_karakeepapi tests/tst_karakeepapi
+cp tst_karakeepapi.moc tests/tst_karakeepapi.moc
+```
+
+#### Step 4 — run
+
+```bash
+/usr/bin/docker run --rm \
+  -v "$(pwd):/home/mersdk/build" \
+  -w /home/mersdk/build \
+  --user mersdk \
+  -e KARAKEEP_API_KEY="<your-key>" \
+  ghcr.io/juergenbr/karakeep-build-env:latest \
+  bash -c 'export LD_LIBRARY_PATH=/srv/mer/targets/SailfishOS-5.0.0.62-i486/usr/lib:$LD_LIBRARY_PATH; tests/tst_karakeepapi -v2'
+```
+
+Run a single test function by appending its name:
+
+```bash
+... tests/tst_karakeepapi -v2 testWhoAmI
 ```
 
 Tests create and delete bookmarks tagged `__sailfish_test__` to avoid polluting the server.
+
+#### One-liner (steps 1–4 chained)
+
+```bash
+rm -f *.o moc_*.cpp moc_*.o tst_karakeepapi tst_karakeepapi.moc \
+      tests/tst_karakeepapi tests/tst_karakeepapi.moc Makefile && \
+/usr/bin/docker run --rm \
+  -v "$(pwd):/home/mersdk/build" \
+  -w /home/mersdk/build \
+  --user mersdk \
+  ghcr.io/juergenbr/karakeep-build-env:latest \
+  mb2 -t SailfishOS-5.0.0.62-i486 -s rpm/tst_karakeepapi.spec build && \
+cp tst_karakeepapi tests/tst_karakeepapi && \
+cp tst_karakeepapi.moc tests/tst_karakeepapi.moc && \
+/usr/bin/docker run --rm \
+  -v "$(pwd):/home/mersdk/build" \
+  -w /home/mersdk/build \
+  --user mersdk \
+  -e KARAKEEP_API_KEY="<your-key>" \
+  ghcr.io/juergenbr/karakeep-build-env:latest \
+  bash -c 'export LD_LIBRARY_PATH=/srv/mer/targets/SailfishOS-5.0.0.62-i486/usr/lib:$LD_LIBRARY_PATH; tests/tst_karakeepapi -v2'
+```
+
+#### Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `make: Nothing to be done for 'first'` | `.o` files in repo root are newer than sources; make skips compilation | Run the purge step (Step 1) before building |
+| Test function present in source but missing from `Totals` | `tests/tst_karakeepapi.moc` is stale (generated before the function was added) | Delete `tests/tst_karakeepapi.moc` and rebuild from scratch |
+| Signal not received / test fails immediately | Source changed but binary not rebuilt — `mb2` used `git archive` of old commit | Commit first, then do a full clean rebuild |
+| `error while loading shared libraries: libQt5Test.so.5` | Qt libs not on `LD_LIBRARY_PATH` at runtime | Always run the binary inside the Docker container with `LD_LIBRARY_PATH=/srv/mer/targets/SailfishOS-5.0.0.62-i486/usr/lib` set |
+| `pkcon install-local` fails with "authentication" | `pkcon` needs PolicyKit which doesn't work over SSH | Use `ssh root@... rpm -Uvh --force` instead |
 
 ## Architecture
 
