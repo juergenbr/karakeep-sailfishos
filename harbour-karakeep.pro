@@ -2,12 +2,17 @@ TARGET = harbour-karakeep
 
 CONFIG += sailfishapp
 
+include(karakeep_backend.pri)
+
 SOURCES += src/harbour-karakeep.cpp
 
 DISTFILES += \
     qml/harbour-karakeep.qml \
     qml/cover/CoverPage.qml \
     qml/pages/MainPage.qml \
+    qml/pages/SettingsPage.qml \
+    qml/pages/BookmarkDetailPage.qml \
+    qml/pages/AddBookmarkPage.qml \
     rpm/harbour-karakeep.changes \
     rpm/harbour-karakeep.spec \
     translations/*.ts \

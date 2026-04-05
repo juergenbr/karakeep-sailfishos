@@ -63,6 +63,9 @@ private slots:
     // ── Lists ────────────────────────────────────────────────────────────────
     void testFetchLists();
 
+    // ── Search ───────────────────────────────────────────────────────────────
+    void testSearchBookmarks();
+
     // ── Tags ─────────────────────────────────────────────────────────────────
     void testFetchTags();
     void testFetchTagsFiltered();
@@ -406,6 +409,78 @@ void TestKarakeepApi::testFetchLists()
         QVERIFY(waitForSignal(lbSpy));
         QCOMPARE(lbSpy.first().at(0).toString(), listId);
     }
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+
+void TestKarakeepApi::testSearchBookmarks()
+{
+    // Baseline: unfiltered first page
+    QSignalSpy allSpy(m_api, &KarakeepApi::bookmarksFetched);
+    m_api->fetchBookmarks(QString(), 20);
+    QVERIFY(waitForSignal(allSpy));
+    const int unfilteredCount = allSpy.first().at(0).toList().count();
+    qDebug() << "Unfiltered count (first 20):" << unfilteredCount;
+    if (unfilteredCount == 0) {
+        QSKIP("No bookmarks on server — skipping search test.");
+    }
+
+    // Fresh API instance to avoid stale keep-alive issues
+    delete m_api;
+    m_api = new KarakeepApi(m_settings, this);
+
+    // Search for "Prusa"
+    QSignalSpy okSpy(m_api, &KarakeepApi::bookmarksFetched);
+    QSignalSpy errSpy(m_api, &KarakeepApi::requestError);
+
+    m_api->fetchBookmarks(QString(), 20, false, false, "Prusa");
+
+    QVERIFY2(waitForSignal(okSpy), "Search request timed out — API may not support ?q=");
+    QCOMPARE(errSpy.count(), 0);
+
+    const QVariantList results = okSpy.first().at(0).toList();
+    qDebug() << "Search results for 'Prusa':" << results.count();
+    for (int i = 0; i < qMin(results.count(), 5); ++i) {
+        const QVariantMap bm = results.at(i).toMap();
+        qDebug() << "  " << i
+                 << bm.value("title").toString()
+                 << bm.value("url").toString();
+    }
+
+    // Search must filter: fewer results than unfiltered (or zero)
+    QVERIFY2(results.count() < unfilteredCount,
+             qPrintable(QString("Search returned %1 results — same as unfiltered %2."
+                                " API may be ignoring the ?q= parameter.")
+                        .arg(results.count()).arg(unfilteredCount)));
+
+    // Every returned bookmark should relate to "Prusa".
+    // The server does full-text search including crawled page content and AI summaries,
+    // so not every result will mention "Prusa" in the fields returned by the API.
+    // We check what we can see and warn on misses rather than failing hard.
+    int relevantCount = 0;
+    for (const QVariant &v : results) {
+        const QVariantMap bm = v.toMap();
+        const QString title   = bm.value("title").toString();
+        const QString desc    = bm.value("description").toString();
+        const QString text    = bm.value("text").toString();
+        const QString url     = bm.value("url").toString();
+        const QString summary = bm.value("summary").toString();
+        const bool relevant   = title.contains("prusa",   Qt::CaseInsensitive)
+                             || desc.contains("prusa",    Qt::CaseInsensitive)
+                             || text.contains("prusa",    Qt::CaseInsensitive)
+                             || url.contains("prusa",     Qt::CaseInsensitive)
+                             || summary.contains("prusa", Qt::CaseInsensitive);
+        if (relevant)
+            ++relevantCount;
+        else
+            qWarning() << "Result not visibly Prusa-related (may match via crawled content):"
+                       << title << url;
+    }
+    // At least half the results should visibly mention Prusa
+    QVERIFY2(relevantCount * 2 >= results.count(),
+             qPrintable(QString("Only %1 of %2 results visibly mention 'Prusa' — "
+                                "search may be returning poorly-ranked results")
+                        .arg(relevantCount).arg(results.count())));
 }
 
 // ── Tags ──────────────────────────────────────────────────────────────────────
