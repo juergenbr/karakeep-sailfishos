@@ -101,7 +101,7 @@ Page {
             }
             page.nextCursor = nextCursor
 
-            if (filterMode === "all" && searchField.text.trim() === "") {
+            if (filterMode === "all" && page.searchQuery === "") {
                 appWindow.totalBookmarkCount = bookmarkModel.count
                 if (bookmarkModel.count > 0) {
                     appWindow.lastBookmarkTitle = bookmarkModel.get(0).title
@@ -252,6 +252,7 @@ Page {
             }
 
             SearchField {
+                id: searchField
                 width: parent.width
                 placeholderText: qsTr("Search bookmarks…")
                 visible: AppSettings.configured
@@ -261,9 +262,12 @@ Page {
                     page.refresh()
                 }
                 onTextChanged: {
-                    page.searchQuery = text.trim()
-                    // X button clears the field — reload the full list immediately
-                    if (text.trim() === "") page.refresh()
+                    // Only update searchQuery when the field is cleared (X button)
+                    // to avoid desynchronising the cursor/model with an in-progress query.
+                    if (text.trim() === "") {
+                        page.searchQuery = ""
+                        page.refresh()
+                    }
                 }
             }
 

@@ -60,6 +60,10 @@ void KarakeepApi::fetchBookmarks(const QString &cursor,
     if (!search.isEmpty()) {
         path = "/bookmarks/search";
         params["q"] = search;
+        if (archived)
+            params["archived"] = true;
+        if (favourited)
+            params["favourited"] = true;
     } else {
         path = "/bookmarks";
         if (archived)

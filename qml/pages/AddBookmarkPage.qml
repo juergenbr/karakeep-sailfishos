@@ -17,6 +17,8 @@ Dialog {
 
     onAccepted: {
         saving = true
+        saveError = false
+        saveErrorMessage = ""
         if (bookmarkType === "link") {
             KarakeepApi.createLinkBookmark(
                 urlField.text.trim(),

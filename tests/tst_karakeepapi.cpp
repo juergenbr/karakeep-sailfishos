@@ -435,7 +435,7 @@ void TestKarakeepApi::testSearchBookmarks()
 
     m_api->fetchBookmarks(QString(), 20, false, false, "Prusa");
 
-    QVERIFY2(waitForSignal(okSpy), "Search request timed out — API may not support ?q=");
+    QVERIFY2(waitForSignal(okSpy), "Search request timed out — API may not support /bookmarks/search");
     QCOMPARE(errSpy.count(), 0);
 
     const QVariantList results = okSpy.first().at(0).toList();
@@ -447,11 +447,20 @@ void TestKarakeepApi::testSearchBookmarks()
                  << bm.value("url").toString();
     }
 
-    // Search must filter: fewer results than unfiltered (or zero)
-    QVERIFY2(results.count() < unfilteredCount,
-             qPrintable(QString("Search returned %1 results — same as unfiltered %2."
-                                " API may be ignoring the ?q= parameter.")
-                        .arg(results.count()).arg(unfilteredCount)));
+    // Search must produce a different result set from the unfiltered query.
+    // A count comparison is unreliable when both queries return a full page (e.g. 20 items).
+    // Instead compare bookmark IDs: at least one ID must differ.
+    const QVariantList unfilteredResults = allSpy.first().at(0).toList();
+    QSet<QString> unfilteredIds;
+    for (const QVariant &v : unfilteredResults)
+        unfilteredIds.insert(v.toMap().value("id").toString());
+    QSet<QString> searchIds;
+    for (const QVariant &v : results)
+        searchIds.insert(v.toMap().value("id").toString());
+    QVERIFY2(results.count() == 0 || unfilteredIds != searchIds,
+             qPrintable(QString("Search returned the exact same %1 bookmarks as unfiltered — "
+                                "API may be ignoring the /bookmarks/search q parameter.")
+                        .arg(results.count())));
 
     // Every returned bookmark should relate to "Prusa".
     // The server does full-text search including crawled page content and AI summaries,

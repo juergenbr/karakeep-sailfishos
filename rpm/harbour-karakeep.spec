@@ -1,7 +1,7 @@
 Name:       harbour-karakeep
 
 Summary:    KaraKeep
-Version:    0.2
+Version:    0.2.0
 Release:    1
 License:    LICENSE
 URL:        https://github.com/juergenbr/karakeep-sailfishos

@@ -16,7 +16,9 @@ AppSettings::AppSettings(QObject *parent)
             m_settings.setValue(KEY_SERVER_URL, envUrl);
     }
     if (m_settings.value(KEY_API_KEY).toString().isEmpty()) {
-        const QString envKey = env.value("KARAKEEP_KEY");
+        QString envKey = env.value("KARAKEEP_API_KEY");
+        if (envKey.isEmpty())
+            envKey = env.value("KARAKEEP_KEY");
         if (!envKey.isEmpty())
             m_settings.setValue(KEY_API_KEY, envKey);
     }
