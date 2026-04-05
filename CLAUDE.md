@@ -226,8 +226,9 @@ The two version strings that release-please manages (annotated with `# x-release
 
 | Workflow | Trigger | Jobs |
 |----------|---------|------|
-| `release-please.yml` | Push to main | Creates/updates Release PR; tags and creates GitHub Release on merge |
 | `build.yml` | PR to main | `build` (i486 + aarch64) + `test` (if `KARAKEEP_URL` set) |
-| `build.yml` | Release published | `build` (i486 + aarch64) → `attach-rpms` (uploads to the release) |
+| `release-please.yml` | Push to main | `release-please` (creates/updates Release PR); on release: `build-release` (i486 + aarch64, uploads RPMs to the GitHub Release) |
+
+**Why build-and-attach lives in `release-please.yml`:** GitHub does not fire cross-workflow events for actions taken by `GITHUB_TOKEN`. Using `on: release: published` in a separate workflow would never trigger when release-please creates the release. The fix is to check `steps.release.outputs.release_created` directly in the same workflow.
 
 The CI image `ghcr.io/juergenbr/karakeep-build-env:latest` is not built with `docker build`; it is created via `docker run` + `sdk-manage` + `docker commit` (PAM requirement). See `Dockerfile` for the full reproduction procedure.

@@ -1,15 +1,10 @@
 name: Build & validate
 
-# ── Triggers ───────────────────────────────────────────────────────────────────
-#
-# pull_request  → validate that the code compiles (gate for merging)
-# release       → build both arches and attach RPMs to the GitHub Release
-#                 that release-please created
+# Runs on every PR to main. Ensures the code compiles on both architectures
+# before merging. RPM building for releases is handled in release-please.yml.
 on:
   pull_request:
     branches: [main]
-  release:
-    types: [published]
 
 env:
   SFOS_VERSION: "5.0.0.62"
@@ -59,9 +54,6 @@ jobs:
                 -s rpm/harbour-karakeep.spec \
                 build
 
-      - name: List produced RPMs
-        run: ls -lh "${GITHUB_WORKSPACE}/RPMS/"
-
       - name: Upload RPM artifact
         uses: actions/upload-artifact@v4
         with:
@@ -71,11 +63,11 @@ jobs:
 
   # ── Integration tests (optional, needs API credentials) ──────────────────────
   #
-  # Only runs on pull requests (not releases) and only when KARAKEEP_URL is set.
+  # Only runs when KARAKEEP_URL is configured as a repository variable.
   test:
     name: API integration tests
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && vars.KARAKEEP_URL != ''
+    if: vars.KARAKEEP_URL != ''
 
     steps:
       - name: Checkout
@@ -96,46 +88,18 @@ jobs:
             -w /home/mersdk/build \
             --user mersdk \
             ghcr.io/juergenbr/karakeep-build-env:latest \
-            bash -c "qmake tests/tests.pro -o tests/Makefile && make -C tests -f Makefile"
+            mb2 -t "SailfishOS-${SFOS_VERSION}-i486" \
+                -s rpm/tst_karakeepapi.spec \
+                build
 
       - name: Run tests
         env:
-          KARAKEEP_URL: ${{ vars.KARAKEEP_URL }}
           KARAKEEP_API_KEY: ${{ secrets.KARAKEEP_API_KEY }}
         run: |
           docker run --rm \
             -v "${GITHUB_WORKSPACE}:/home/mersdk/build" \
             -w /home/mersdk/build \
             --user mersdk \
-            -e KARAKEEP_URL \
             -e KARAKEEP_API_KEY \
             ghcr.io/juergenbr/karakeep-build-env:latest \
-            tests/tst_karakeepapi -v2
-
-  # ── Attach RPMs to the GitHub Release ────────────────────────────────────────
-  #
-  # Only runs when a release is published (by release-please).
-  # Downloads the matrix artifacts and uploads them to the existing release.
-  attach-rpms:
-    name: Attach RPMs to release
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.event_name == 'release'
-    permissions:
-      contents: write
-
-    steps:
-      - name: Download RPM artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release-rpms
-          merge-multiple: true
-
-      - name: List RPMs
-        run: ls -lh release-rpms/
-
-      - name: Upload RPMs to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: release-rpms/*.rpm
-          fail_on_unmatched_files: true
+            bash -c "export LD_LIBRARY_PATH=/srv/mer/targets/SailfishOS-${SFOS_VERSION}-i486/usr/lib:\$LD_LIBRARY_PATH; tests/tst_karakeepapi -v2"

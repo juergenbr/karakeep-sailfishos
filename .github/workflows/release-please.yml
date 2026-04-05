@@ -8,13 +8,80 @@ permissions:
   contents: write
   pull-requests: write
 
+env:
+  SFOS_VERSION: "5.0.0.62"
+
 jobs:
+  # ── Create or update the Release PR ──────────────────────────────────────────
   release-please:
     name: Update release PR
     runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      - uses: googleapis/release-please-action@v4
+      - id: release
+        uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  # ── Build RPMs and attach to the release ─────────────────────────────────────
+  #
+  # Only runs when release-please actually created a new GitHub Release.
+  # Checks out the exact release tag so the built RPMs match the published
+  # source. Runs both architectures in parallel, then uploads to the release.
+  #
+  # NOTE: We intentionally do this in the same workflow rather than using an
+  # `on: release: published` trigger in build.yml — GitHub does not fire
+  # cross-workflow events for actions taken by GITHUB_TOKEN.
+  build-release:
+    name: Build RPM (${{ matrix.target }})
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: i486       # emulator
+          - target: aarch64    # device
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build RPM
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          chmod -R a+rw "${GITHUB_WORKSPACE}"
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/home/mersdk/build" \
+            -w /home/mersdk/build \
+            --user mersdk \
+            ghcr.io/juergenbr/karakeep-build-env:latest \
+            mb2 -t "SailfishOS-${SFOS_VERSION}-${TARGET}" \
+                -s rpm/harbour-karakeep.spec \
+                build
+
+      - name: Upload RPM to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          files: RPMS/*.rpm
+          fail_on_unmatched_files: true
