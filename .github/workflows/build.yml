@@ -1,0 +1,87 @@
+name: Build & validate
+
+on:
+  push:
+    branches: [main, "release/**"]
+  pull_request:
+
+env:
+  SFOS_VERSION: "5.0.0.62"
+  BUILD_ENV_IMAGE: ghcr.io/juergenbr/karakeep-build-env
+
+jobs:
+  # ── Job 1: build RPMs for both architectures ────────────────────────────────
+  build:
+    name: Build RPM (${{ matrix.target }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: i486          # emulator
+          - target: aarch64       # Jolla Phone 2026, Jolla C2, Xperia
+
+    container:
+      image: ghcr.io/juergenbr/karakeep-build-env:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      options: --user mersdk
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select RPM spec (avoids "Multiple SPEC files found" error)
+        run: sfdk config --global specfile=rpm/harbour-karakeep.spec
+
+      - name: Clean stale build artefacts
+        run: |
+          rm -f harbour-karakeep harbour-karakeep.o Makefile .qmake.stash \
+                moc_*.cpp moc_*.o *.o
+          rm -rf RPMS
+
+      - name: Build
+        env:
+          TARGET: ${{ matrix.target }}
+        run: sfdk -c target=SailfishOS-${SFOS_VERSION}-${TARGET} build 2>&1
+
+      - name: List produced RPMs
+        run: ls -lh RPMS/
+
+      - name: Upload RPM
+        uses: actions/upload-artifact@v4
+        with:
+          name: harbour-karakeep-${{ matrix.target }}-rpm
+          path: RPMS/*.rpm
+          retention-days: 14
+
+  # ── Job 2: integration tests (optional, needs API credentials) ────────────────
+  test:
+    name: API integration tests
+    runs-on: ubuntu-latest
+    # Only run when KARAKEEP_URL variable is configured; skips silently on forks.
+    if: vars.KARAKEEP_URL != ''
+
+    container:
+      image: ghcr.io/juergenbr/karakeep-build-env:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      options: --user mersdk
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build test binary
+        run: |
+          sfdk build-shell "qmake tests/tests.pro -o tests/Makefile"
+          sfdk build-shell "make -C tests -f Makefile"
+
+      - name: Run tests
+        env:
+          KARAKEEP_URL: ${{ vars.KARAKEEP_URL }}
+          KARAKEEP_API_KEY: ${{ secrets.KARAKEEP_API_KEY }}
+        run: sfdk build-shell "KARAKEEP_URL=${KARAKEEP_URL} KARAKEEP_API_KEY=${KARAKEEP_API_KEY} tests/tst_karakeepapi -v2"
