@@ -62,6 +62,10 @@ public slots:
     void fetchTags(const QString &nameContains = QString(),
                    int            limit        = 100);
 
+    // ── List membership ───────────────────────────────────────────────────────
+    void addBookmarkToList(const QString &listId, const QString &bookmarkId);
+    void removeBookmarkFromList(const QString &listId, const QString &bookmarkId);
+
 signals:
     // ── Success ──────────────────────────────────────────────────────────────
     void whoAmIFetched(const QVariantMap &user);
@@ -82,6 +86,9 @@ signals:
     void listBookmarksFetched(const QString      &listId,
                               const QVariantList &bookmarks,
                               const QString      &nextCursor);
+
+    void bookmarkAddedToList(const QString &listId, const QString &bookmarkId);
+    void bookmarkRemovedFromList(const QString &listId, const QString &bookmarkId);
 
     void tagsFetched(const QVariantList &tags);
 

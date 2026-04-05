@@ -7,9 +7,13 @@ Dialog {
 
     property string bookmarkType: "link"   // "link" | "text"
 
-    property bool saving: false
-    property bool saveError: false
+    // Optional: when set, the new bookmark is added to this list after creation
+    property string targetListId: ""
+
+    property bool   saving:           false
+    property bool   saveError:        false
     property string saveErrorMessage: ""
+    property string _pendingBookmarkId: ""   // holds id while waiting for addBookmarkToList
 
     canAccept: bookmarkType === "link"
         ? urlField.text.trim() !== ""
@@ -36,14 +40,34 @@ Dialog {
 
     Connections {
         target: KarakeepApi
+
         onBookmarkCreated: {
+            if (targetListId !== "") {
+                // Step 2: add the new bookmark to the target list before popping
+                dialog._pendingBookmarkId = bookmark.id
+                KarakeepApi.addBookmarkToList(targetListId, bookmark.id)
+            } else {
+                saving = false
+                pageStack.pop()
+            }
+        }
+
+        onBookmarkAddedToList: {
+            if (listId !== targetListId || bookmarkId !== dialog._pendingBookmarkId) return
             saving = false
             pageStack.pop()
         }
+
         onRequestError: {
-            saving = false
-            saveError = true
-            saveErrorMessage = message
+            if (operation === "addBookmarkToList") {
+                // Bookmark was created; only the list-add step failed — still dismiss
+                saving = false
+                pageStack.pop()
+            } else {
+                saving = false
+                saveError = true
+                saveErrorMessage = message
+            }
         }
     }
 
