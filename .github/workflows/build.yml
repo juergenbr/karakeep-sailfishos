@@ -7,10 +7,15 @@ on:
 
 env:
   SFOS_VERSION: "5.0.0.62"
-  BUILD_ENV_IMAGE: ghcr.io/juergenbr/karakeep-build-env
 
 jobs:
   # ── Job 1: build RPMs for both architectures ────────────────────────────────
+  #
+  # The build engine container is 32-bit (i486). GitHub Actions' Node.js
+  # runtime (used by actions/checkout, upload-artifact, etc.) is 64-bit and
+  # cannot execute inside a 32-bit container. So we do NOT use `container:`.
+  # Instead we check out the code on the runner as normal, then invoke mb2
+  # (the actual build tool) via `docker run` for the compile + RPM steps.
   build:
     name: Build RPM (${{ matrix.target }})
     runs-on: ubuntu-latest
@@ -22,33 +27,32 @@ jobs:
           - target: i486          # emulator
           - target: aarch64       # Jolla Phone 2026, Jolla C2, Xperia
 
-    container:
-      image: ghcr.io/juergenbr/karakeep-build-env:latest
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-      options: --user mersdk
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Select RPM spec (avoids "Multiple SPEC files found" error)
-        run: sfdk config --global specfile=rpm/harbour-karakeep.spec
-
-      - name: Clean stale build artefacts
-        run: |
-          rm -f harbour-karakeep harbour-karakeep.o Makefile .qmake.stash \
-                moc_*.cpp moc_*.o *.o
-          rm -rf RPMS
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
         env:
           TARGET: ${{ matrix.target }}
-        run: sfdk -c target=SailfishOS-${SFOS_VERSION}-${TARGET} build 2>&1
+        run: |
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/build" \
+            -w /build \
+            --user mersdk \
+            ghcr.io/juergenbr/karakeep-build-env:latest \
+            mb2 -t "SailfishOS-${SFOS_VERSION}-${TARGET}" \
+                -s rpm/harbour-karakeep.spec \
+                build
 
       - name: List produced RPMs
-        run: ls -lh RPMS/
+        run: ls -lh "${GITHUB_WORKSPACE}/RPMS/"
 
       - name: Upload RPM
         uses: actions/upload-artifact@v4
@@ -61,27 +65,38 @@ jobs:
   test:
     name: API integration tests
     runs-on: ubuntu-latest
-    # Only run when KARAKEEP_URL variable is configured; skips silently on forks.
     if: vars.KARAKEEP_URL != ''
-
-    container:
-      image: ghcr.io/juergenbr/karakeep-build-env:latest
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-      options: --user mersdk
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build test binary
         run: |
-          sfdk build-shell "qmake tests/tests.pro -o tests/Makefile"
-          sfdk build-shell "make -C tests -f Makefile"
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/build" \
+            -w /build \
+            --user mersdk \
+            ghcr.io/juergenbr/karakeep-build-env:latest \
+            bash -c "qmake tests/tests.pro -o tests/Makefile && make -C tests -f Makefile"
 
       - name: Run tests
         env:
           KARAKEEP_URL: ${{ vars.KARAKEEP_URL }}
           KARAKEEP_API_KEY: ${{ secrets.KARAKEEP_API_KEY }}
-        run: sfdk build-shell "KARAKEEP_URL=${KARAKEEP_URL} KARAKEEP_API_KEY=${KARAKEEP_API_KEY} tests/tst_karakeepapi -v2"
+        run: |
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/build" \
+            -w /build \
+            --user mersdk \
+            -e KARAKEEP_URL \
+            -e KARAKEEP_API_KEY \
+            ghcr.io/juergenbr/karakeep-build-env:latest \
+            tests/tst_karakeepapi -v2
