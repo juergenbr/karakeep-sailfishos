@@ -63,6 +63,12 @@ def trpc(endpoint, payload):
     return _request("POST", f"{BASE}/api/trpc/{endpoint}", data={"json": payload})
 
 
+def trpc_query(endpoint, payload=None):
+    """tRPC query procedures use GET with input as a URL-encoded JSON param."""
+    input_json = urllib.parse.quote(json.dumps({"json": payload or {}}))
+    return _request("GET", f"{BASE}/api/trpc/{endpoint}?input={input_json}")
+
+
 def rest(method, path, data=None):
     return _request(method, f"{BASE}/api/v1/{path}", data=data, auth=True)
 
@@ -118,6 +124,20 @@ def login():
 def create_api_key():
     global _api_key
     print("Creating API key...")
+
+    # Revoke any existing key with the same name so re-runs don't hit the
+    # unique-constraint 500 error.
+    try:
+        existing = trpc_query("apiKeys.list")
+        keys = existing["result"]["data"]["json"]["keys"]
+        for k in keys:
+            if k["name"] == "qa-demo-key":
+                trpc("apiKeys.revoke", {"id": k["id"]})
+                print("  Revoked existing qa-demo-key.")
+                break
+    except Exception:
+        pass  # non-fatal; create attempt below will surface any real error
+
     result = trpc("apiKeys.create", {"name": "qa-demo-key"})
     _api_key = result["result"]["data"]["json"]["key"]
     print("  API key created.")
