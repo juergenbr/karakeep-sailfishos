@@ -50,7 +50,8 @@ jobs:
       matrix:
         include:
           - target: i486       # emulator
-          - target: aarch64    # device
+          - target: aarch64    # Jolla Phone 2026, Jolla C2, Xperia (64-bit)
+          - target: armv7hl    # Jolla 1, Jolla C, older Xperia (32-bit ARM)
 
     steps:
       - name: Checkout release tag
@@ -86,19 +87,11 @@ jobs:
           files: RPMS/*.rpm
           fail_on_unmatched_files: true
 
-      # Expose the aarch64 RPM path so the publish job can pick it up.
-      # Only the aarch64 matrix leg sets this output; the i486 leg produces
-      # nothing here and is ignored by the publish job's download filter.
-      - name: Export RPM path
-        if: matrix.target == 'aarch64'
-        id: rpm
-        run: echo "path=$(ls RPMS/*.aarch64.rpm)" >> "$GITHUB_OUTPUT"
-
-  # ── Publish aarch64 RPM to Jolla Harbour ─────────────────────────────────────
+  # ── Publish device RPMs to Jolla Harbour ─────────────────────────────────────
   #
-  # Runs only after both build-release legs complete and only on a real release.
-  # Downloads the aarch64 RPM from the GitHub Release (already attached by the
-  # build-release job) and POSTs it to the Harbour upload API.
+  # Runs only after all build-release legs complete and only on a real release.
+  # Downloads the aarch64 and armv7hl RPMs from the GitHub Release (already
+  # attached by the build-release job) and POSTs them to the Harbour upload API.
   #
   # Required repository secrets (Settings → Secrets and variables → Actions):
   #   HARBOUR_USERNAME  – your Jolla account e-mail address
@@ -114,7 +107,7 @@ jobs:
       contents: read
 
     steps:
-      - name: Download aarch64 RPM from release
+      - name: Download device RPMs from release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.release-please.outputs.tag_name }}
@@ -122,6 +115,7 @@ jobs:
           gh release download "$TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --pattern "*.aarch64.rpm" \
+            --pattern "*.armv7hl.rpm" \
             --dir rpm-upload
 
       - name: Upload to Harbour
@@ -129,12 +123,13 @@ jobs:
           HARBOUR_USERNAME: ${{ secrets.HARBOUR_USERNAME }}
           HARBOUR_API_KEY: ${{ secrets.HARBOUR_API_KEY }}
         run: |
-          RPM=$(ls rpm-upload/*.aarch64.rpm)
-          echo "Uploading ${RPM} ..."
-          curl --fail-with-body \
-            -u "${HARBOUR_USERNAME}:${HARBOUR_API_KEY}" \
-            -F "file=@${RPM}" \
-            "https://harbour.jolla.com/api/v1/apps/harbour-karakeep/versions/"
+          for RPM in rpm-upload/*.rpm; do
+            echo "Uploading ${RPM} ..."
+            curl --fail-with-body \
+              -u "${HARBOUR_USERNAME}:${HARBOUR_API_KEY}" \
+              -F "file=@${RPM}" \
+              "https://harbour.jolla.com/api/v1/apps/harbour-karakeep/versions/"
+          done
 
       - name: Show submission status
         env:
