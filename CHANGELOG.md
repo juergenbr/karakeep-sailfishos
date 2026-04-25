@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/juergenbr/karakeep-sailfishos/compare/v0.3.0...v0.3.1) (2026-04-25)
+
+
+### ### Fixed
+
+* **settings:** SettingsPage fails to load on Qt 5.6 (onEditingFinished missing) ([bc4648d](https://github.com/juergenbr/karakeep-sailfishos/commit/bc4648d5060ecc770f4e0101414e797126cd3b8a))
+
 ## [0.3.0](https://github.com/juergenbr/karakeep-sailfishos/compare/v0.2.0...v0.3.0) (2026-04-05)
 
 
