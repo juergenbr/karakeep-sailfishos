@@ -9,8 +9,7 @@ running the SailfishOS app against it inside the emulator.
 
 | Tool | Purpose |
 |------|---------|
-| Docker Engine ≥ 24 | Runs the Karakeep server |
-| Docker Compose plugin (`docker compose`) or standalone `docker-compose` | Manages the container |
+| Docker Engine ≥ 24 (or Podman ≥ 4) | Runs the Karakeep server |
 | Python 3 | Runs the seed script (stdlib only, no pip packages required) |
 | SailfishOS SDK ≥ 5.0.0.62 | Provides the emulator |
 
@@ -18,10 +17,23 @@ running the SailfishOS app against it inside the emulator.
 
 ## 1 — Start the Karakeep server
 
+Run from the **repo root** (`karakeep/`):
+
 ```bash
-cd demo/
-docker compose up -d
+docker run -d \
+  --name karakeep-demo \
+  --restart unless-stopped \
+  -p 3000:3000 \
+  -v karakeep-demo-data:/data \
+  -e DATA_DIR=/data \
+  -e NEXTAUTH_SECRET=qa-demo-secret-not-for-production \
+  -e NEXTAUTH_URL=http://localhost:3000 \
+  -e DISABLE_SIGNUPS=false \
+  ghcr.io/karakeep-app/karakeep:latest
 ```
+
+> A `demo/docker-compose.yml` is also included for environments where the Docker
+> Compose plugin is available (`docker compose up -d` from the `demo/` directory).
 
 Karakeep starts on **http://localhost:3000**. Wait a few seconds for it to
 initialise before running the seed script.
@@ -29,6 +41,8 @@ initialise before running the seed script.
 ---
 
 ## 2 — Seed demo data
+
+Run from the **repo root** (`karakeep/`):
 
 ```bash
 python3 demo/seed.py
@@ -56,8 +70,10 @@ When done it prints the credentials and the emulator config command:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-> Run the seed script once only. Running it again creates duplicate data.
-> To reset, see [Resetting the environment](#resetting-the-environment).
+> **Run the seed script once per fresh instance.** Running it a second time without
+> resetting the volume creates duplicate lists and bookmarks (the API key is handled
+> safely — the old one is revoked and a new one issued).
+> To start over cleanly, see [Resetting the environment](#resetting-the-environment).
 
 ---
 
@@ -102,19 +118,21 @@ ssh $SSH_OPTS -p 2223 root@127.0.0.1 "rpm -ivh /tmp/harbour-karakeep-*.i486.rpm"
 
 ## 6 — Configure the app
 
-Copy the config command printed by `seed.py` and run it over SSH:
+`seed.py` prints a ready-to-run config command at the end of its output:
+
+```
+  Emulator config — run via SSH as root:
+  mkdir -p /home/defaultuser/.config/harbour-karakeep && printf '[connection]\n...' > ...
+```
+
+Copy that command and run it over SSH:
 
 ```bash
 KEY=~/SailfishOS/vmshare/ssh/private_keys/sdk
 SSH_OPTS="-i $KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
-ssh $SSH_OPTS -p 2223 root@127.0.0.1 \
-  "mkdir -p /home/defaultuser/.config/harbour-karakeep && \
-   printf '[connection]\nserverUrl=http://10.0.2.2:3000\napiKey=<KEY FROM SEED OUTPUT>\n' \
-   > /home/defaultuser/.config/harbour-karakeep/harbour-karakeep.conf"
+ssh $SSH_OPTS -p 2223 root@127.0.0.1 '<paste the command from seed.py output here>'
 ```
-
-Replace `<KEY FROM SEED OUTPUT>` with the API key printed by `seed.py`.
 
 > **Why `10.0.2.2`?** The emulator uses VirtualBox NAT; `10.0.2.2` is the
 > standard NAT gateway address that routes to the host machine.
@@ -176,9 +194,10 @@ demo bookmarks — no manual server or API key entry is needed.
 To start over with a clean instance:
 
 ```bash
-docker compose down -v   # stops the container and deletes the volume
-docker compose up -d     # start fresh
-python3 demo/seed.py     # re-seed
+docker stop karakeep-demo && docker rm karakeep-demo
+docker volume rm karakeep-demo-data
+# then re-run the docker run command from step 1, followed by:
+python3 demo/seed.py
 ```
 
 ---
@@ -186,9 +205,15 @@ python3 demo/seed.py     # re-seed
 ## Stopping the environment
 
 ```bash
-# Stop the Karakeep server (keeps data)
-docker compose stop
+# Stop the Karakeep server (keeps data in the volume)
+docker stop karakeep-demo
 
 # Stop the emulator
 VBoxManage controlvm "SailfishOS-5.0.0.62" acpipowerbutton
+```
+
+To start the server again later:
+
+```bash
+docker start karakeep-demo
 ```
