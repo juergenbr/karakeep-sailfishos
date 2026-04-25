@@ -50,7 +50,8 @@ jobs:
       matrix:
         include:
           - target: i486       # emulator
-          - target: aarch64    # device
+          - target: aarch64    # Jolla Phone 2026, Jolla C2, Xperia (64-bit)
+          - target: armv7hl    # Jolla 1, Jolla C, older Xperia (32-bit ARM)
 
     steps:
       - name: Checkout release tag
@@ -85,3 +86,57 @@ jobs:
           tag_name: ${{ needs.release-please.outputs.tag_name }}
           files: RPMS/*.rpm
           fail_on_unmatched_files: true
+
+  # ── Publish device RPMs to Jolla Harbour ─────────────────────────────────────
+  #
+  # Runs only after all build-release legs complete and only on a real release.
+  # Downloads the aarch64 and armv7hl RPMs from the GitHub Release (already
+  # attached by the build-release job) and POSTs them to the Harbour upload API.
+  #
+  # Required repository secrets (Settings → Secrets and variables → Actions):
+  #   HARBOUR_USERNAME  – your Jolla account e-mail address
+  #   HARBOUR_API_KEY   – API key from harbour.jolla.com → My Account → API keys
+  #
+  # Harbour REST API reference: https://harbour.jolla.com/api
+  publish-harbour:
+    name: Publish to Harbour Store
+    needs: [release-please, build-release]
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Download device RPMs from release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          gh release download "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "*.aarch64.rpm" \
+            --pattern "*.armv7hl.rpm" \
+            --dir rpm-upload
+
+      - name: Upload to Harbour
+        env:
+          HARBOUR_USERNAME: ${{ secrets.HARBOUR_USERNAME }}
+          HARBOUR_API_KEY: ${{ secrets.HARBOUR_API_KEY }}
+        run: |
+          for RPM in rpm-upload/*.rpm; do
+            echo "Uploading ${RPM} ..."
+            curl --fail-with-body \
+              -u "${HARBOUR_USERNAME}:${HARBOUR_API_KEY}" \
+              -F "file=@${RPM}" \
+              "https://harbour.jolla.com/api/v1/apps/harbour-karakeep/versions/"
+          done
+
+      - name: Show submission status
+        env:
+          HARBOUR_USERNAME: ${{ secrets.HARBOUR_USERNAME }}
+          HARBOUR_API_KEY: ${{ secrets.HARBOUR_API_KEY }}
+        run: |
+          curl --fail-with-body \
+            -u "${HARBOUR_USERNAME}:${HARBOUR_API_KEY}" \
+            "https://harbour.jolla.com/api/v1/apps/harbour-karakeep/versions/" \
+            | python3 -m json.tool

@@ -4,62 +4,72 @@
 <context>
     <name>AddBookmarkPage</name>
     <message>
-        <location filename="../qml/pages/AddBookmarkPage.qml" line="76"/>
+        <location filename="../qml/pages/AddBookmarkPage.qml" line="68"/>
+        <source>Bookmark saved, but it could not be added to the selected list: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/pages/AddBookmarkPage.qml" line="69"/>
+        <source>Bookmark saved, but it could not be added to the selected list.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/pages/AddBookmarkPage.qml" line="80"/>
         <source>Save</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/AddBookmarkPage.qml" line="77"/>
+        <location filename="../qml/pages/AddBookmarkPage.qml" line="81"/>
         <source>Cancel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/AddBookmarkPage.qml" line="78"/>
+        <location filename="../qml/pages/AddBookmarkPage.qml" line="82"/>
         <source>Add link</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/AddBookmarkPage.qml" line="78"/>
+        <location filename="../qml/pages/AddBookmarkPage.qml" line="82"/>
         <source>Add note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/AddBookmarkPage.qml" line="98"/>
+        <location filename="../qml/pages/AddBookmarkPage.qml" line="102"/>
         <source>URL</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/AddBookmarkPage.qml" line="99"/>
+        <location filename="../qml/pages/AddBookmarkPage.qml" line="103"/>
         <source>https://…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/AddBookmarkPage.qml" line="109"/>
+        <location filename="../qml/pages/AddBookmarkPage.qml" line="113"/>
         <source>Text</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/AddBookmarkPage.qml" line="110"/>
+        <location filename="../qml/pages/AddBookmarkPage.qml" line="114"/>
         <source>Write your note here…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/AddBookmarkPage.qml" line="118"/>
+        <location filename="../qml/pages/AddBookmarkPage.qml" line="122"/>
         <source>Title (optional)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/AddBookmarkPage.qml" line="119"/>
+        <location filename="../qml/pages/AddBookmarkPage.qml" line="123"/>
         <source>Leave empty to auto-detect</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/AddBookmarkPage.qml" line="127"/>
+        <location filename="../qml/pages/AddBookmarkPage.qml" line="131"/>
         <source>Tags (optional)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/AddBookmarkPage.qml" line="128"/>
+        <location filename="../qml/pages/AddBookmarkPage.qml" line="132"/>
         <source>reading, tech, news</source>
         <translation type="unfinished"></translation>
     </message>
@@ -174,92 +184,92 @@
 <context>
     <name>ListDetailPage</name>
     <message>
-        <location filename="../qml/pages/ListDetailPage.qml" line="150"/>
+        <location filename="../qml/pages/ListDetailPage.qml" line="162"/>
         <source>Refresh</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/ListDetailPage.qml" line="154"/>
+        <location filename="../qml/pages/ListDetailPage.qml" line="166"/>
         <source>Add note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/ListDetailPage.qml" line="162"/>
+        <location filename="../qml/pages/ListDetailPage.qml" line="174"/>
         <source>Add link</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/ListDetailPage.qml" line="197"/>
+        <location filename="../qml/pages/ListDetailPage.qml" line="209"/>
         <source>bookmarks</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/ListDetailPage.qml" line="238"/>
+        <location filename="../qml/pages/ListDetailPage.qml" line="250"/>
         <source>Move to another list</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/ListDetailPage.qml" line="260"/>
+        <location filename="../qml/pages/ListDetailPage.qml" line="267"/>
         <source>Remove from list</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/ListDetailPage.qml" line="264"/>
+        <location filename="../qml/pages/ListDetailPage.qml" line="271"/>
         <source>Removing</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/ListDetailPage.qml" line="273"/>
+        <location filename="../qml/pages/ListDetailPage.qml" line="280"/>
         <source>Remove from favourites</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/ListDetailPage.qml" line="274"/>
+        <location filename="../qml/pages/ListDetailPage.qml" line="281"/>
         <source>Add to favourites</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/ListDetailPage.qml" line="278"/>
+        <location filename="../qml/pages/ListDetailPage.qml" line="285"/>
         <source>Unarchive</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/ListDetailPage.qml" line="278"/>
+        <location filename="../qml/pages/ListDetailPage.qml" line="285"/>
         <source>Archive</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/ListDetailPage.qml" line="282"/>
+        <location filename="../qml/pages/ListDetailPage.qml" line="289"/>
         <source>Delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/ListDetailPage.qml" line="286"/>
+        <location filename="../qml/pages/ListDetailPage.qml" line="293"/>
         <source>Deleting</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/ListDetailPage.qml" line="357"/>
+        <location filename="../qml/pages/ListDetailPage.qml" line="364"/>
         <source>Untitled</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/ListDetailPage.qml" line="442"/>
+        <location filename="../qml/pages/ListDetailPage.qml" line="449"/>
         <source>Load more</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/ListDetailPage.qml" line="452"/>
+        <location filename="../qml/pages/ListDetailPage.qml" line="459"/>
         <source>No bookmarks in this list</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/ListDetailPage.qml" line="454"/>
+        <location filename="../qml/pages/ListDetailPage.qml" line="461"/>
         <source>Pull down to add a link or note</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/pages/ListDetailPage.qml" line="455"/>
+        <location filename="../qml/pages/ListDetailPage.qml" line="462"/>
         <source>This smart list has no matching bookmarks</source>
         <translation type="unfinished"></translation>
     </message>

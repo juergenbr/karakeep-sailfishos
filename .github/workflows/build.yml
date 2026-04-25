@@ -27,7 +27,8 @@ jobs:
       matrix:
         include:
           - target: i486          # emulator
-          - target: aarch64       # Jolla Phone 2026, Jolla C2, Xperia
+          - target: aarch64       # Jolla Phone 2026, Jolla C2, Xperia (64-bit)
+          - target: armv7hl       # Jolla 1, Jolla C, older Xperia (32-bit ARM)
 
     steps:
       - name: Checkout

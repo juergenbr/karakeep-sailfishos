@@ -38,6 +38,11 @@
 #           "https://releases.sailfishos.org/sdk/targets/Sailfish_OS-5.0.0.62-Sailfish_SDK_Target-aarch64.tar.7z" \
 #           --tooling SailfishOS-5.0.0.62
 #
+#       /usr/bin/docker exec --user mersdk sfos-build-setup \
+#           sdk-manage target install SailfishOS-5.0.0.62-armv7hl \
+#           "https://releases.sailfishos.org/sdk/targets/Sailfish_OS-5.0.0.62-Sailfish_SDK_Target-armv7hl.tar.7z" \
+#           --tooling SailfishOS-5.0.0.62
+#
 #       /usr/bin/docker commit sfos-build-setup \
 #           ghcr.io/juergenbr/karakeep-build-env:5.0.0.62
 #       /usr/bin/docker tag  ghcr.io/juergenbr/karakeep-build-env:5.0.0.62 \
