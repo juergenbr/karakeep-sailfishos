@@ -83,7 +83,7 @@ Page {
                 inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoPredictiveText
                 EnterKey.iconSource: "image://theme/icon-m-enter-next"
                 EnterKey.onClicked: apiKeyField.focus = true
-                onEditingFinished: { saveUrl(); testDone = false }
+                onActiveFocusChanged: { if (!activeFocus) { saveUrl(); testDone = false } }
             }
 
             PasswordField {
@@ -94,7 +94,7 @@ Page {
                 text: AppSettings.apiKey
                 EnterKey.iconSource: "image://theme/icon-m-enter-accept"
                 EnterKey.onClicked: { focus = false; testConnection() }
-                onEditingFinished: { saveKey(); testDone = false }
+                onActiveFocusChanged: { if (!activeFocus) { saveKey(); testDone = false } }
             }
 
             Item { width: 1; height: Theme.paddingLarge }
