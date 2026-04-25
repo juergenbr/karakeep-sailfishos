@@ -1,0 +1,19 @@
+services:
+  karakeep:
+    image: ghcr.io/karakeep-app/karakeep:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - karakeep-data:/data
+    environment:
+      DATA_DIR: /data
+      NEXTAUTH_SECRET: qa-demo-secret-not-for-production
+      NEXTAUTH_URL: http://localhost:3000
+      DISABLE_SIGNUPS: "false"
+      # AI features disabled — not needed for QA
+      OPENAI_API_KEY: ""
+      OLLAMA_BASE_URL: ""
+
+volumes:
+  karakeep-data:
