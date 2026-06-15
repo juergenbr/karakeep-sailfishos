@@ -10,6 +10,13 @@ Page {
     property bool testDone: false
     property string testMessage: ""
 
+    onStatusChanged: {
+        if (status === PageStatus.Deactivating || status === PageStatus.Inactive) {
+            saveUrl()
+            saveKey()
+        }
+    }
+
     function saveUrl() {
         var url = serverUrlField.text.trim()
         // Strip trailing slash (Qt 5.6 safe — no endsWith)

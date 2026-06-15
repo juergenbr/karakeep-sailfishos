@@ -34,6 +34,7 @@ void AppSettings::setServerUrl(const QString &url)
     if (serverUrl() == url)
         return;
     m_settings.setValue(KEY_SERVER_URL, url);
+    m_settings.sync();
     emit serverUrlChanged();
     emit configuredChanged();
 }
@@ -48,6 +49,7 @@ void AppSettings::setApiKey(const QString &key)
     if (apiKey() == key)
         return;
     m_settings.setValue(KEY_API_KEY, key);
+    m_settings.sync();
     emit apiKeyChanged();
     emit configuredChanged();
 }
