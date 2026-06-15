@@ -9,12 +9,39 @@ Page {
     property bool testSuccess: false
     property bool testDone: false
     property string testMessage: ""
+    property bool settingsDirty: false
+    property string settingsStateMessage: ""
 
-    function saveUrl() {
-        var url = serverUrlField.text.trim()
+    onStatusChanged: {
+        if (status === PageStatus.Deactivating && hasUnsavedChanges())
+            saveSettings()
+    }
+
+    function normalizedServerUrl(text) {
+        var url = text.trim()
         // Strip trailing slash (Qt 5.6 safe — no endsWith)
         while (url.length > 0 && url.charAt(url.length - 1) === "/")
             url = url.slice(0, url.length - 1)
+        return url
+    }
+
+    function hasUnsavedChanges() {
+        return normalizedServerUrl(serverUrlField.text) !== AppSettings.serverUrl
+            || apiKeyField.text.trim() !== AppSettings.apiKey
+    }
+
+    function updateSettingsState(savedNow) {
+        settingsDirty = hasUnsavedChanges()
+        if (settingsDirty)
+            settingsStateMessage = qsTr("You have unsaved changes.")
+        else if (savedNow)
+            settingsStateMessage = qsTr("Settings saved.")
+        else
+            settingsStateMessage = ""
+    }
+
+    function saveUrl() {
+        var url = normalizedServerUrl(serverUrlField.text)
         AppSettings.serverUrl = url
     }
 
@@ -22,9 +49,14 @@ Page {
         AppSettings.apiKey = apiKeyField.text.trim()
     }
 
-    function testConnection() {
+    function saveSettings() {
         saveUrl()
         saveKey()
+        updateSettingsState(true)
+    }
+
+    function testConnection() {
+        saveSettings()
         testDone = false
         if (!AppSettings.configured) {
             testDone = true
@@ -83,7 +115,8 @@ Page {
                 inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoPredictiveText
                 EnterKey.iconSource: "image://theme/icon-m-enter-next"
                 EnterKey.onClicked: apiKeyField.focus = true
-                onActiveFocusChanged: { if (!activeFocus) { saveUrl(); testDone = false } }
+                onTextChanged: updateSettingsState(false)
+                onActiveFocusChanged: { if (!activeFocus) { saveSettings(); testDone = false } }
             }
 
             PasswordField {
@@ -94,7 +127,8 @@ Page {
                 text: AppSettings.apiKey
                 EnterKey.iconSource: "image://theme/icon-m-enter-accept"
                 EnterKey.onClicked: { focus = false; testConnection() }
-                onActiveFocusChanged: { if (!activeFocus) { saveKey(); testDone = false } }
+                onTextChanged: updateSettingsState(false)
+                onActiveFocusChanged: { if (!activeFocus) { saveSettings(); testDone = false } }
             }
 
             Item { width: 1; height: Theme.paddingLarge }
@@ -131,6 +165,21 @@ Page {
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.WordWrap
                     visible: testDone && !testInProgress
+                }
+
+                Label {
+                    anchors {
+                        left: parent.left
+                        right: parent.right
+                        leftMargin: Theme.horizontalPageMargin
+                        rightMargin: Theme.horizontalPageMargin
+                    }
+                    text: settingsStateMessage
+                    color: settingsDirty ? Theme.secondaryColor : Theme.highlightColor
+                    font.pixelSize: Theme.fontSizeSmall
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                    visible: settingsStateMessage !== ""
                 }
             }
 
