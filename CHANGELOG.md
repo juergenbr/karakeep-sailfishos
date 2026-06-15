@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.2](https://github.com/juergenbr/karakeep-sailfishos/compare/v0.3.1...v0.3.2) (2026-06-15)
+
+
+### ### Fixed
+
+* **settings:** avoid duplicate autosave and show settings save state ([022db60](https://github.com/juergenbr/karakeep-sailfishos/commit/022db600d243bd6f04fafd2add77bbaf33dd486a))
+* **settings:** persist auth settings immediately to avoid loss on quit ([53a6d34](https://github.com/juergenbr/karakeep-sailfishos/commit/53a6d341e40cde442635d574bdcc75e8c977ee6d))
+* **settings:** persist auth settings immediately to avoid loss on quit ([d29df0a](https://github.com/juergenbr/karakeep-sailfishos/commit/d29df0abc96e532c58d22463ef1ee03de590e5b6)), closes [#8](https://github.com/juergenbr/karakeep-sailfishos/issues/8)
+
+
+### ### Documentation
+
+* **demo:** fix README to use direct docker run instead of compose ([db812e2](https://github.com/juergenbr/karakeep-sailfishos/commit/db812e255345388de48d7fb4ca309a9548ddfae6))
+
 ## [0.3.1](https://github.com/juergenbr/karakeep-sailfishos/compare/v0.3.0...v0.3.1) (2026-04-25)
 
 

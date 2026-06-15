@@ -2,7 +2,7 @@ Name:       harbour-karakeep
 
 Summary:    KaraKeep
 # x-release-please-start-version
-Version:    0.3.1
+Version:    0.3.2
 # x-release-please-end
 Release:    1
 License:    LICENSE
