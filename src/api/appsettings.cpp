@@ -6,7 +6,9 @@ static const char *KEY_API_KEY    = "connection/apiKey";
 
 AppSettings::AppSettings(QObject *parent)
     : QObject(parent)
-    , m_settings("harbour-karakeep", "harbour-karakeep")
+    // Must match [X-Sailjail] OrganizationName/ApplicationName in harbour-karakeep.desktop —
+    // Sailjail only whitelists persistent writes under $HOME/.config/<OrganizationName>/<ApplicationName>.
+    , m_settings("org.karakeep", "KaraKeep")
 {
     // Seed from env vars on first run (debug convenience)
     const QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
