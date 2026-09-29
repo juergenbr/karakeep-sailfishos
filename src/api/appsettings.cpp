@@ -1,12 +1,23 @@
 #include "appsettings.h"
+
+#include <QCoreApplication>
 #include <QProcessEnvironment>
+#include <QStandardPaths>
 
 static const char *KEY_SERVER_URL = "connection/serverUrl";
 static const char *KEY_API_KEY    = "connection/apiKey";
 
+QString AppSettings::settingsFilePath()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation)
+           + QLatin1String("/")
+           + QCoreApplication::applicationName()
+           + QLatin1String(".conf");
+}
+
 AppSettings::AppSettings(QObject *parent)
     : QObject(parent)
-    , m_settings("harbour-karakeep", "harbour-karakeep")
+    , m_settings(settingsFilePath(), QSettings::NativeFormat)
 {
     // Seed from env vars on first run (debug convenience)
     const QProcessEnvironment env = QProcessEnvironment::systemEnvironment();

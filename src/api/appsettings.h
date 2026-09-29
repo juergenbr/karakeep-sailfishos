@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QSettings>
+#include <QString>
 
 class AppSettings : public QObject
 {
@@ -12,6 +13,8 @@ class AppSettings : public QObject
 
 public:
     explicit AppSettings(QObject *parent = nullptr);
+
+    static QString settingsFilePath();
 
     QString serverUrl() const;
     void    setServerUrl(const QString &url);
