@@ -2,9 +2,13 @@ name: Build & validate
 
 # Runs on every PR to main. Ensures the code compiles on both architectures
 # before merging. RPM building for releases is handled in release-please.yml.
+# Changes that only touch CI/pipeline files (.github/**) do not need an RPM
+# build and are skipped.
 on:
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '.github/**'
 
 env:
   SFOS_VERSION: "5.0.0.62"
