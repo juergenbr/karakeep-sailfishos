@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.3](https://github.com/juergenbr/karakeep-sailfishos/compare/v0.3.2...v0.3.3) (2026-10-15)
+
+
+### ### Fixed
+
+* **settings:** persist credentials inside the Sailjail-whitelisted config directory ([f39be2a](https://github.com/juergenbr/karakeep-sailfishos/commit/f39be2a16b4ef046b67447dac7748c93d177a122))
+* **settings:** use Sailjail-whitelisted QSettings org/app names ([4b538d6](https://github.com/juergenbr/karakeep-sailfishos/commit/4b538d6b15f38afcd5b498314b09b2dccad71ac0)), closes [#8](https://github.com/juergenbr/karakeep-sailfishos/issues/8)
+* **settings:** write settings file inside the Sailjail-whitelisted directory ([11b1ff1](https://github.com/juergenbr/karakeep-sailfishos/commit/11b1ff1f8feab97ad3da565e7fd27885a2306038))
+
 ## [0.3.2](https://github.com/juergenbr/karakeep-sailfishos/compare/v0.3.1...v0.3.2) (2026-06-15)
 
 
