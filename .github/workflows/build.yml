@@ -14,7 +14,7 @@ env:
   SFOS_VERSION: "5.0.0.62"
 
 jobs:
-  # ── Build RPMs for both architectures ─────────────────────────────────────────
+  # ── Build RPMs for both architectures ────────────────────────────────────────
   #
   # The build engine container is 32-bit (i486). GitHub Actions' Node.js
   # runtime (used by actions/checkout, upload-artifact, etc.) is 64-bit and
@@ -66,7 +66,7 @@ jobs:
           path: RPMS/*.rpm
           retention-days: 14
 
-  # ── Integration tests (optional, needs API credentials) ─────────────────────
+  # ── Integration tests (optional, needs API credentials) ──────────────────────
   #
   # Only runs when KARAKEEP_URL is configured as a repository variable.
   test:
