@@ -1,12 +1,30 @@
 #include "appsettings.h"
 #include <QProcessEnvironment>
+#include <QStandardPaths>
 
 static const char *KEY_SERVER_URL = "connection/serverUrl";
 static const char *KEY_API_KEY    = "connection/apiKey";
 
+// Must match [X-Sailjail] OrganizationName/ApplicationName in harbour-karakeep.desktop.
+// Sailjail whitelists (and pre-creates) the directory
+//   $HOME/.config/<OrganizationName>/<ApplicationName>/
+// but not sibling files such as the default QSettings file
+//   $HOME/.config/<OrganizationName>/<ApplicationName>.conf
+// which only exist in the sandbox tmpfs overlay and are lost when the app exits.
+static const char *ORGANIZATION_NAME = "org.karakeep";
+static const char *APPLICATION_NAME  = "KaraKeep";
+
+static QString settingsFilePath()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
+            + QLatin1Char('/') + QLatin1String(ORGANIZATION_NAME)
+            + QLatin1Char('/') + QLatin1String(APPLICATION_NAME)
+            + QLatin1String("/settings.conf");
+}
+
 AppSettings::AppSettings(QObject *parent)
     : QObject(parent)
-    , m_settings("harbour-karakeep", "harbour-karakeep")
+    , m_settings(settingsFilePath(), QSettings::NativeFormat)
 {
     // Seed from env vars on first run (debug convenience)
     const QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
@@ -22,6 +40,7 @@ AppSettings::AppSettings(QObject *parent)
         if (!envKey.isEmpty())
             m_settings.setValue(KEY_API_KEY, envKey);
     }
+    m_settings.sync();
 }
 
 QString AppSettings::serverUrl() const
