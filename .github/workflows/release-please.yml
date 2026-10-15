@@ -12,7 +12,7 @@ env:
   SFOS_VERSION: "5.0.0.62"
 
 jobs:
-  # ── Create or update the Release PR ─────────────────────────────────────────
+  # ── Create or update the Release PR ──────────────────────────────────────────
   release-please:
     name: Update release PR
     runs-on: ubuntu-latest
@@ -27,7 +27,7 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  # ── Build RPMs and attach to the release ──────────────────────────────────
+  # ── Build RPMs and attach to the release ─────────────────────────────────────
   #
   # Only runs when release-please actually created a new GitHub Release.
   # Checks out the exact release tag so the built RPMs match the published
@@ -59,7 +59,7 @@ jobs:
         with:
           ref: ${{ needs.release-please.outputs.tag_name }}
 
-      - name: Log in to GCR
+      - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -87,7 +87,7 @@ jobs:
           files: RPMS/*.rpm
           fail_on_unmatched_files: true
 
-# NOTE: Automatic submission to the Jolla Harbour store was removed └ new
+# NOTE: Automatic submission to the Jolla Harbour store was removed — new
 # versions are uploaded manually from the GitHub Release artifacts
 # (aarch64 + armv7hl RPMs). Do not re-add automatic publishing without
 # testing the Harbour API flow first.
